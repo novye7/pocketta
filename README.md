@@ -1,6 +1,6 @@
-<h1 align="center">
+<p align="center">
   <img src="docs/media/pocketta-otter.webp" width="240" alt="Pocketta">
-</h1>
+</p>
 
 <p align="center">
   把 ChatGPT 的卡片、图表和表格装进口袋：<br>
