@@ -1,7 +1,7 @@
 "use strict";
 // The hover button is a content script; the picker is injected on first use.
 const HOVER = ["components.js", "hover.js"];
-const PICKER = ["theme.js", "capture.js", "outline.js", "native-svg.js", "raster.js", "exporter.js", "picker.js"];
+const PICKER = ["color.js", "capture.js", "outline.js", "native-svg.js", "raster.js", "exporter.js", "picker.js"];
 const SITE = "https://chatgpt.com/*";
 const TITLE = "ChatGPT UI 导出";
 

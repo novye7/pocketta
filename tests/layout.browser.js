@@ -32,17 +32,6 @@
         assert(visible.every(button => { const rect = button.getBoundingClientRect(); return rect.left >= bar.left && rect.right <= bar.right && rect.top >= bar.top && rect.bottom <= bar.bottom; }), `${format} controls stay inside the toolbar with options ${open ? "open" : "closed"}`);
       }
     }
-    // The theme panel scrolls, so its controls are only checked sideways.
-    ui().getElementById("theme").click();
-    await new Promise(requestAnimationFrame);
-    await Promise.all(ui().getAnimations().map(animation => animation.finished));
-    await new Promise(requestAnimationFrame);
-    const bar = ui().getElementById("bar").getBoundingClientRect();
-    assert(bar.left >= 0 && bar.right <= innerWidth && bar.top >= 0 && bar.bottom <= innerHeight, "The theme panel fits a 280px window");
-    const controls = [...ui().querySelectorAll("#themes button, #themes input")].filter(node => node.checkVisibility({ visibilityProperty: true }));
-    assert(controls.length > 12 && controls.every(node => { const rect = node.getBoundingClientRect(); return rect.left >= bar.left && rect.right <= bar.right; }), "Theme controls stay inside the toolbar");
-    const panel = ui().querySelector("#themes .scroll");
-    assert(panel.scrollHeight <= panel.clientHeight || panel.getBoundingClientRect().height <= 360, "A long theme panel scrolls instead of growing past its room");
     return checks;
   } finally {
     picker.close();

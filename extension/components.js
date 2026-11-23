@@ -1,6 +1,6 @@
 (() => {
   "use strict";
-  const VERSION = "0.8.0";
+  const VERSION = "0.9.0";
   if (globalThis.__chatgptUIExportComponents?.version === VERSION) return;
 
   // ChatGPT renders an intelligent UI response as one tree of typed nodes
@@ -9,8 +9,6 @@
   // everything that is not prose, an inline part, or a piece of a table.
   const ROOT = "[data-dil-message-id]";
   const NODES = "[data-d-component], table";
-  // A themed export keeps a hidden copy of the component next to it while it is measured.
-  const STAGED = "[data-ui-export-staged]";
   const PROSE_TYPES = new Set([
     "text", "title", "caption", "blockquote", "list", "list-item", "divider", "math", "code", "icon",
     "popover-trigger", "link", "table-row", "table-cell"
@@ -63,7 +61,7 @@
   // The components directly inside a component, or inside a response root.
   function children(scope) {
     const owner = scope.matches(ROOT) ? null : scope;
-    return [...scope.querySelectorAll(NODES)].filter(node => isComponent(node) && parent(node) === owner && !node.closest(STAGED));
+    return [...scope.querySelectorAll(NODES)].filter(node => isComponent(node) && parent(node) === owner);
   }
 
   // A wrapper that covers the same box as its content is one level, not two:

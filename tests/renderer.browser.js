@@ -1,4 +1,4 @@
-// Evaluate in a browser document after the extension scripts (theme, capture, native-svg, raster, exporter); no test dependencies.
+// Evaluate in a browser document after the extension scripts (color, capture, native-svg, raster, exporter); no test dependencies.
 (async () => {
   const checks = [];
   const assert = (value, message) => {

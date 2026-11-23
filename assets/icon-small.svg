@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
-  <!-- Source for the 16 and 32 px icons: no dashes and no text lines. One pixel is 6 units at 16 px and 3 units at 32 px, so the upright edges sit on multiples of 6. -->
-  <rect width="96" height="96" rx="24" fill="#0a7cff"/>
-  <rect x="15" y="45" width="42" height="36" rx="9" fill="none" stroke="#ffffff" stroke-opacity=".62" stroke-width="6"/>
-  <g transform="translate(57 39) rotate(-9)">
-    <rect x="-24" y="-18" width="48" height="36" rx="9" fill="#ffffff" stroke="#0a7cff" stroke-width="6" paint-order="stroke"/>
+  <!-- Source for the 16 and 32 px icons: a solid outline and a plain card. -->
+  <rect width="96" height="96" rx="22" fill="#0d0d0d"/>
+  <rect x="11" y="39" width="52" height="42" rx="10" fill="none" stroke="#ffffff" stroke-opacity=".62" stroke-width="6"/>
+  <g transform="translate(58 37) rotate(-9)">
+    <rect x="-26" y="-21" width="52" height="42" rx="10" fill="#ffffff" stroke="#0d0d0d" stroke-width="6" paint-order="stroke"/>
   </g>
 </svg>

@@ -1,6 +1,6 @@
 (() => {
   "use strict";
-  const VERSION = "0.8.0";
+  const VERSION = "0.9.0";
   if (globalThis.__chatgptUIExportRaster?.version === VERSION) return;
 
   const MAX_PIXELS = 32_000_000;
@@ -36,14 +36,11 @@
   }
 
   /**
-   * Renders the styled clone through the browser's own layout engine, then
-   * composites it onto the requested canvas decoration.
+   * Renders the styled clone through the browser's own layout engine.
    */
-  async function render({ clone, rules, config, ambient, surface = "page", scale = 2, width, height, signal }) {
-    const Theme = globalThis.__chatgptUIExportTheme;
+  async function render({ clone, rules, ambient, surface = "page", scale = 2, width, height, signal }) {
     assertActive(signal);
-    const geo = Theme.geometry(width, height, config.canvas);
-    if (geo.width * scale > MAX_DIMENSION || geo.height * scale > MAX_DIMENSION || geo.width * geo.height * scale * scale > MAX_PIXELS) {
+    if (width * scale > MAX_DIMENSION || height * scale > MAX_DIMENSION || width * height * scale * scale > MAX_PIXELS) {
       throw new Error("图片过大，请选择 1× 清晰度或缩小选取范围。");
     }
     const wrapper = document.createElement("div");
@@ -61,23 +58,16 @@
     const image = await bounded(decode(svg), signal, 15_000, "渲染超时，请缩小选取范围后重试。");
     assertActive(signal);
     const canvas = document.createElement("canvas");
-    canvas.width = Math.round(geo.width * scale);
-    canvas.height = Math.round(geo.height * scale);
+    canvas.width = Math.round(width * scale);
+    canvas.height = Math.round(height * scale);
     const context = canvas.getContext("2d");
     if (!context) throw new Error("无法创建图片，请缩小选取范围。");
     context.scale(scale, scale);
     if (surface !== "transparent" && ambient) {
       context.fillStyle = ambient;
-      context.fillRect(0, 0, geo.width, geo.height);
+      context.fillRect(0, 0, width, height);
     }
-    const painted = Theme.fillCard(context, geo.card, config.canvas);
-    if (painted && geo.radius) {
-      context.save();
-      Theme.cardPath(context, geo.card, geo.radius);
-      context.clip();
-    }
-    context.drawImage(image, geo.content.x, geo.content.y, width, height);
-    if (painted && geo.radius) context.restore();
+    context.drawImage(image, 0, 0, width, height);
     let blob;
     try {
       blob = await bounded(new Promise(resolve => canvas.toBlob(resolve, "image/png")), signal, 15_000, "生成 PNG 超时。");

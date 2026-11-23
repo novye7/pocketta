@@ -21,7 +21,7 @@ try {
   call(["open", "https://chatgpt.com/ui-export-test"]);
   call(["set", "viewport", "1280", "900"]);
   evaluate(`document.open(); document.write('<!doctype html><html><head><meta charset="utf-8"><title>UI exporter regression</title></head><body></body></html>'); document.close();`);
-  for (const file of ["components", "hover", "theme", "capture", "outline", "native-svg", "raster", "exporter", "picker"]) {
+  for (const file of ["components", "hover", "color", "capture", "outline", "native-svg", "raster", "exporter", "picker"]) {
     evaluate(readFileSync(new URL(`../extension/${file}.js`, import.meta.url), "utf8"));
   }
   for (const name of tests) {

@@ -3,7 +3,7 @@
 // document while they are near the window.
 //
 // Evaluate on a chatgpt.com document without a conversation, after every
-// extension script except background.js (components, hover, theme, capture,
+// extension script except background.js (components, hover, color, capture,
 // outline, native-svg, raster, exporter, picker). Returns the passed checks.
 (async () => {
   const checks = [];
@@ -222,7 +222,7 @@
     assert(ui("drawer").hasAttribute("data-open") && rowTop() === before, "Options fold open without moving the main row");
     const size = ui("size").textContent;
     ui("scale").querySelector('[data-value="3"]').click();
-    assert(shown("scale") && !shown("text") && ui("size").textContent !== size && ui("size").textContent.includes("像素"), "PNG offers a resolution, and the size shown follows it");
+    assert(shown("scale") && !shown("text") && ui("size").textContent !== size && /^\d+ × \d+$/.test(ui("size").textContent), "PNG offers a resolution, and the size shown follows it");
     ui("scale").querySelector('[data-value="2"]').click();
     key("s");
     assert(!shown("scale") && shown("text"), "SVG offers text handling instead");
@@ -232,6 +232,16 @@
     const outlined = await (await fetch(downloads[2].href)).text();
     assert(!outlined.includes("<text") && outlined.includes("<use"), "Text can be exported as outlines");
     ui("text").querySelector('[data-value="live"]').click();
+    const svgButton = ui("format").querySelector('[data-value="svg"]');
+    svgButton.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, composed: true, detail: 1 }));
+    const focused = ui("bar").getRootNode().activeElement;
+    assert(format() === "svg" && focused === ui("bar"), "A pointer click returns focus to the bar");
+    const hintsOpen = ui("hints").hasAttribute("data-open");
+    assert(key("?") && ui("hints").hasAttribute("data-open") !== hintsOpen, "? toggles the shortcut list");
+    key("?");
+    assert(ui("hints").hasAttribute("data-open") === hintsOpen, "? toggles the shortcut list back");
+    focused.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true, cancelable: true, composed: true }));
+    assert(format() === "svg" && notice().includes("范围"), "Arrow keys adjust the range, not the button that was clicked");
     ui("more").click();
     await wait(400);
 
@@ -279,82 +289,6 @@
     // settle around the replacement instead of assuming two frames suffice.
     await until(selected("fx-a"), "selection follows the replacement after the boundary animation");
     assert($("fx-a") !== stale && selected("fx-a")(), "The selection survives ChatGPT re-rendering the component");
-
-    // ---- themes ---------------------------------------------------------------
-    // Presets go through chrome.storage, which a plain page lacks.
-    const store = {};
-    globalThis.chrome.storage = { local: { get: async name => ({ [name]: store[name] }), set: async items => { Object.assign(store, structuredClone(items)); } } };
-    const choose = (group, value) => ui(group).querySelector(`[data-value="${value}"]`).click();
-    const enter = (input, value) => { input.value = value; input.dispatchEvent(new Event("input", { bubbles: true })); };
-    const chips = () => [...ui("presets").children].map(chip => chip.textContent + (chip.getAttribute("aria-pressed") === "true" ? "*" : "")).join();
-    const loaded = C.all().length;
-    const untouched = $("fx-a").outerHTML;
-    const plainSize = { width: Math.ceil($("fx-a").getBoundingClientRect().width), height: Math.ceil($("fx-a").getBoundingClientRect().height) };
-    ui("more").click();
-    ui("theme").click();
-    await wait(400);
-    assert(ui("themes").hasAttribute("data-open") && !ui("drawer").hasAttribute("data-open") && ui("theme").getAttribute("aria-expanded") === "true" && ui("more").getAttribute("aria-expanded") === "false", "The theme panel opens in place of the options");
-    assert(chips() === "默认*" && ui("preset-new").hidden && ui("preset-delete").hidden && !ui("theme").hasAttribute("data-on"), "It starts on the default theme, with nothing to save");
-    const swatch = [...ui("colors").children].find(item => item.dataset.key === "238,244,238");
-    assert(swatch && ui("colors").children.length <= 8 && ui("colors-reset").hidden, "The component's own colours are listed for replacing");
-
-    choose("canvas-bg", "solid");
-    enter(ui("bg-color"), "#204060");
-    enter(ui("padding"), 20);
-    assert(format() === "png" && ui("size").textContent === `${(plainSize.width + 40) * 2} × ${(plainSize.height + 40) * 2} 像素` && ui("theme").hasAttribute("data-on"), "The size shown includes the canvas, and the button marks a theme in use");
-    key("Enter");
-    await exported("download", 7);
-    const canvased = await createImageBitmap(await (await fetch(downloads[4].href)).blob());
-    const sheet = document.createElement("canvas").getContext("2d");
-    sheet.canvas.width = canvased.width;
-    sheet.canvas.height = canvased.height;
-    sheet.drawImage(canvased, 0, 0);
-    assert(canvased.width === (plainSize.width + 40) * 2 && canvased.height === (plainSize.height + 40) * 2 && [...sheet.getImageData(6, 6, 1, 1).data].join() === "32,64,96,255", "A PNG is exported on the chosen canvas");
-
-    enter(swatch.firstElementChild, "#ff0000");
-    assert(swatch.hasAttribute("data-changed") && !ui("colors-reset").hidden, "A replaced colour is marked and can be put back");
-    key("s");
-    key("Enter");
-    await exported("download", 8);
-    const recoloured = await (await fetch(downloads[5].href)).text();
-    assert(recoloured.includes("#ff0000") && !recoloured.includes("#eef4ee") && recoloured.includes("#204060"), "An SVG is exported with the replacement colour");
-
-    choose("mode", "dark");
-    assert(ui("colors-reset").hidden && ![...ui("colors").children].some(item => item.hasAttribute("data-changed")), "Changing the colour mode drops replacements, which belonged to the other mode's colours");
-    choose("font", "serif");
-    key("Enter");
-    await exported("download", 9);
-    const restyled = await (await fetch(downloads[6].href)).text();
-    assert(restyled.includes("Georgia") && $("fx-a").outerHTML === untouched && !host.querySelector("[data-ui-export-staged]") && C.all().length === loaded, "A forced colour mode and font are exported without changing the page");
-    const staged = $("fx-a").cloneNode(true);
-    staged.setAttribute("data-ui-export-staged", "");
-    $("fx-a").after(staged);
-    assert(C.all().length === loaded && C.resolve(C.keyOf($("fx-b"))) === $("fx-b"), "The hidden copy a themed export measures is never taken for a component");
-    staged.remove();
-
-    assert(chips() === "默认" && !ui("preset-new").hidden, "A theme that is not saved can be saved as a preset");
-    ui("preset-new").click();
-    const field = ui("preset-name");
-    assert(!ui("preset-form").hidden && ui("preset-new").hidden && field.getRootNode().activeElement === field, "Saving asks for a name");
-    const typed = new KeyboardEvent("keydown", { key: "p", bubbles: true, cancelable: true, composed: true });
-    field.dispatchEvent(typed);
-    assert(!typed.defaultPrevented && format() === "svg", "Typing a name does not trigger the picker's shortcuts");
-    field.value = "演示";
-    field.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true, composed: true }));
-    await until(() => chips() === "默认,演示*", "preset is saved");
-    assert(store["chatgpt-ui-export.presets"]["演示"].canvas.padding === 20 && ui("preset-form").hidden && !ui("preset-delete").hidden && downloads.length + clipboard.length === 9, "↵ saves the preset instead of exporting");
-    ui("presets").firstElementChild.click();
-    assert(chips() === "默认*,演示" && !ui("theme").hasAttribute("data-on") && ui("size").textContent === `${plainSize.width} × ${plainSize.height}`, "The default preset clears the theme");
-    ui("presets").lastElementChild.click();
-    assert(chips() === "默认,演示*" && ui("padding").value === "20" && ui("mode").querySelector('[aria-checked="true"]').dataset.value === "dark" && ui("font").querySelector('[aria-checked="true"]').dataset.value === "serif", "A saved preset brings its whole theme back");
-    ui("preset-delete").click();
-    await until(() => chips() === "默认", "preset is deleted");
-    assert(!("演示" in store["chatgpt-ui-export.presets"]) && !ui("preset-new").hidden, "A preset can be deleted, and the theme in use stays");
-    ui("presets").firstElementChild.click();
-    ui("theme").click();
-    key("p");
-    await wait(400);
-    assert(!ui("themes").hasAttribute("data-open") && format() === "png", "The panel folds away again");
 
     // ---- leaving --------------------------------------------------------------
     const composer = document.createElement("textarea");

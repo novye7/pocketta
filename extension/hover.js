@@ -1,6 +1,6 @@
 (() => {
   "use strict";
-  const VERSION = "0.8.0";
+  const VERSION = "0.9.0";
   if (location.origin !== "https://chatgpt.com") return;
   const existing = globalThis.__chatgptUIExportHover;
   if (existing?.version === VERSION) return;

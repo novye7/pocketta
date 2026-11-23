@@ -13,7 +13,7 @@ const list = name => JSON.parse(new RegExp(`const ${name} = (\\[[^\\]]*\\]);`).e
 const hover = list("HOVER");
 const picker = list("PICKER");
 assert.deepEqual(hover, ["components.js", "hover.js"]);
-assert.deepEqual(picker, ["theme.js", "capture.js", "outline.js", "native-svg.js", "raster.js", "exporter.js", "picker.js"]);
+assert.deepEqual(picker, ["color.js", "capture.js", "outline.js", "native-svg.js", "raster.js", "exporter.js", "picker.js"]);
 assert.deepEqual(manifest.content_scripts, [{ matches: ["https://chatgpt.com/*"], js: hover, run_at: "document_idle" }]);
 const scripts = [...hover, ...picker];
 for (const file of scripts) assert.match(await readFile(new URL(file, root), "utf8"), new RegExp(`VERSION = "${pkg.version}"`), `${file} version`);

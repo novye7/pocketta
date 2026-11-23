@@ -1,6 +1,6 @@
 (() => {
   "use strict";
-  const VERSION = "0.8.0";
+  const VERSION = "0.9.0";
   if (globalThis.__chatgptUIExportCapture?.version === VERSION) return;
 
   const MAX_NODES = 8_000;
@@ -21,14 +21,6 @@
   ];
   const SKIP_TAGS = new Set(["script", "style", "link", "meta", "base", "template", "source", "option", "title", "desc", "noscript"]);
   const UNSUPPORTED_TAGS = new Set(["canvas", "iframe", "audio", "video", "object", "embed"]);
-  const COLOR_PROPERTIES = new Set([
-    "color", "background-color", "border-top-color", "border-right-color", "border-bottom-color", "border-left-color",
-    "outline-color", "text-decoration-color", "caret-color", "fill", "stroke", "accent-color", "column-rule-color",
-    "-webkit-text-fill-color", "-webkit-text-stroke-color", "text-emphasis-color"
-  ]);
-  const COLOR_LIST_PROPERTIES = new Set([
-    "background-image", "box-shadow", "text-shadow", "outline", "border", "border-top", "border-right", "border-bottom", "border-left"
-  ]);
 
   function assertActive(signal) {
     if (signal?.aborted) throw new DOMException("导出已取消", "AbortError");
@@ -73,99 +65,22 @@
     });
   }
 
-  // Custom colours are applied to resolved values, so they work for every theme
-  // and for both renderers. Font and radius overrides are applied to the staged
-  // clone itself, because they change layout.
-  // Null when no colour is replaced, so the common case skips the lookup.
-  const mapperFor = config => {
-    const Theme = globalThis.__chatgptUIExportTheme;
-    if (Theme.isPlain(config)) return null;
-    return (property, value) => {
-      if (COLOR_PROPERTIES.has(property)) return Theme.mapColor(value, config.palette);
-      if (COLOR_LIST_PROPERTIES.has(property)) return Theme.mapColorList(value, config.palette);
-      return value;
-    };
-  };
-
-  const styleRecord = (style, map) => {
+  const styleRecord = style => {
     const record = {};
-    for (const property of STYLE_PROPERTIES) {
-      const value = style.getPropertyValue(property);
-      record[property] = map ? map(property, value) : value;
-    }
+    for (const property of STYLE_PROPERTIES) record[property] = style.getPropertyValue(property);
     return record;
   };
 
-  const MONOSPACE = /mono|courier|consolas|menlo|monaco/i;
-  const RADIUS_PROPERTIES = ["border-top-left-radius", "border-top-right-radius", "border-bottom-right-radius", "border-bottom-left-radius"];
-
-  // Applies layout-affecting overrides to the staged clone. Every value is read
-  // before any is written, so one element's override cannot skew another's read.
-  function applyOverrides(copies, config) {
-    const Theme = globalThis.__chatgptUIExportTheme;
-    const edits = [];
-    for (const copy of copies) {
-      if (!(copy instanceof HTMLElement)) continue;
-      const style = getComputedStyle(copy);
-      const values = [];
-      if (config.font && !MONOSPACE.test(style.fontFamily)) values.push(["font-family", config.font]);
-      if (config.radius !== 1) {
-        for (const property of RADIUS_PROPERTIES) {
-          const value = style.getPropertyValue(property);
-          if (value && !/^0(px)?( 0(px)?)?$/.test(value)) values.push([property, Theme.scaleRadius(value, config.radius)]);
-        }
-      }
-      if (values.length) edits.push({ copy, values });
-    }
-    for (const { copy, values } of edits) for (const [property, value] of values) copy.style.setProperty(property, value, "important");
-  }
-
-  // Places a hidden copy of the component next to it and applies the theme to
-  // the copy, so tokens, fonts and radii resolve in the component's real
-  // context while the component itself is left alone.
-  function stage(source, clone, copies, config, rect) {
-    if (!source.parentElement) throw new Error("组件当前不在页面中，无法应用主题。");
-    if (config.mode !== "page") {
-      // ChatGPT re-declares its tokens on every [data-theme] element, and
-      // nested blocks (code surfaces) carry their own copy of the attribute.
-      clone.setAttribute("data-theme", config.mode);
-      for (const node of copies) if (node !== clone && node.hasAttribute("data-theme")) node.setAttribute("data-theme", config.mode);
-    }
-    clone.setAttribute("aria-hidden", "true");
-    clone.setAttribute("inert", "");
-    // Tells component detection that this is not part of the conversation.
-    clone.setAttribute("data-ui-export-staged", "");
-    for (const node of copies) node.removeAttribute("id");
-    Object.assign(clone.style, {
-      position: "absolute", left: "0px", top: "0px", width: `${rect.width}px`,
-      opacity: "0", pointerEvents: "none", margin: "0px"
-    });
-    source.parentElement.append(clone);
-    // Overlay the clone exactly on the source, so sticky and scroll-dependent
-    // descendants settle where the visible ones are.
-    const placed = clone.getBoundingClientRect();
-    clone.style.left = `${rect.left - placed.left}px`;
-    clone.style.top = `${rect.top - placed.top}px`;
-    applyOverrides(copies, config);
-  }
-
   /**
-   * Clones the component, resolves the requested theme and embeds its assets.
-   * Without `scene` the clone is fully styled for the PNG renderer. With
-   * `scene: true` the measured scene feeds the SVG renderer, and the clone is
-   * styled only where that renderer reads it: inline icons.
-   *
-   * With theme.mode === "page" the live DOM is measured and the page is never
-   * mutated. Any other mode appends the clone as the source parent's last child
-   * with a `data-theme` attribute: ChatGPT's own tokens re-resolve in place, so
-   * the clone keeps its inherited context, container queries and layout, and
-   * only colours change.
+   * Clones the component and embeds its assets. The live DOM is measured and the
+   * page is never mutated. Without `scene` the clone is fully styled for the PNG
+   * renderer. With `scene: true` the measured scene feeds the SVG renderer, and
+   * the clone is styled only where that renderer reads it: inline icons.
    */
-  async function build(source, { theme, signal, scene: wantScene = true } = {}) {
+  async function build(source, { signal, scene: wantScene = true } = {}) {
     assertActive(signal);
-    const Theme = globalThis.__chatgptUIExportTheme;
-    if (!Theme) throw new Error("请重新加载扩展后重试。");
-    const config = Theme.normalize(theme);
+    const Color = globalThis.__chatgptUIExportColor;
+    if (!Color) throw new Error("请重新加载扩展后重试。");
     const rect = source.getBoundingClientRect();
     const width = Math.ceil(rect.width);
     const height = Math.ceil(rect.height);
@@ -183,40 +98,15 @@
     if (originals.some(node => node.shadowRoot)) throw new Error("暂不支持包含 Shadow DOM 的组件。");
     if (originals.some(node => UNSUPPORTED_TAGS.has(node.localName))) throw new Error("暂不支持 Canvas、媒体或 iframe，请缩小选取范围后重试。");
 
-    // "Staged" exports measure a hidden clone placed next to the component.
-    const themed = config.mode !== "page" || Boolean(config.font) || config.radius !== 1;
-    if (themed) stage(source, clone, copies, config, rect);
     const pace = pacer(signal);
-    const map = mapperFor(config);
-    const detached = { done: false };
-    const detach = () => {
-      if (detached.done) return;
-      detached.done = true;
-      clone.remove();
-    };
-    // Styles and geometry come from the clone when a theme is forced, and from
-    // the live component otherwise.
-    const readNode = (node, index) => themed ? copies[index] : node;
-    const styleAt = (index, pseudo = null) => getComputedStyle(readNode(originals[index], index), pseudo);
-
-    try {
-      const { inlineAsset } = await embedAssets({ originals, copies, signal, pace });
-      assertActive(signal);
-      const origin = themed ? clone.getBoundingClientRect() : rect;
-      const size = { width: Math.ceil(origin.width), height: Math.ceil(origin.height) };
-      // Only the SVG renderer reads the scene, so its limits must not stop a PNG.
-      const scene = wantScene ? await buildScene({ source, clone, themed, map, pace, origin, ...size }) : null;
-      assertActive(signal);
-      const rules = await exportStyles({ originals, copies, map, styleAt, inlineAsset, rootChrome, width: origin.width, height: origin.height, pace, vector: wantScene });
-      detach();
-      return {
-        scene, clone, originals, copies, rules, width: size.width, height: size.height, config, signal,
-        ambient: Theme.ambientBackground(config.mode, source), detach
-      };
-    } catch (error) {
-      detach();
-      throw error;
-    }
+    const styleAt = (index, pseudo = null) => getComputedStyle(originals[index], pseudo);
+    const { inlineAsset } = await embedAssets({ originals, copies, signal, pace });
+    assertActive(signal);
+    // Only the SVG renderer reads the scene, so its limits must not stop a PNG.
+    const scene = wantScene ? await buildScene({ source, clone, pace, origin: rect, width, height }) : null;
+    assertActive(signal);
+    const rules = await exportStyles({ originals, copies, styleAt, inlineAsset, rootChrome, width: rect.width, height: rect.height, pace, vector: wantScene });
+    return { scene, clone, rules, width, height, ambient: Color.ambientBackground(source) };
   }
 
   // ---- assets -------------------------------------------------------------
@@ -349,7 +239,7 @@
 
   // ---- scene --------------------------------------------------------------
 
-  async function buildScene({ source, clone, themed, map, pace, width, height, origin }) {
+  async function buildScene({ source, clone, pace, width, height, origin }) {
     const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
     let characters = 0;
     const relRect = node => {
@@ -394,7 +284,7 @@
           y: measured.getBoundingClientRect().top - origin.top + measured.clientTop + top,
           width: boxWidth, height: boxHeight
         },
-        style: styleRecord(style, map), children: []
+        style: styleRecord(style), children: []
       });
     }
 
@@ -415,7 +305,7 @@
         if (SKIP_TAGS.has(child.localName) || style.display === "none" || style.visibility !== "visible" || Number(style.opacity) === 0) continue;
         const record = {
           kind: "element", tag: child.localName, node: child, copy: childCopy,
-          rect: relRect(child), style: styleRecord(style, map), children: []
+          rect: relRect(child), style: styleRecord(style), children: []
         };
         container.children.push(record);
         if (child instanceof SVGSVGElement) {
@@ -446,21 +336,17 @@
       }
     }
 
-    // A forced theme is measured on the in-page clone; otherwise the live
-    // component is measured and the detached clone only supplies embedded assets.
-    const measuredRoot = themed ? clone : source;
-    const rootStyle = styleRecord(getComputedStyle(measuredRoot), map);
-    // The staged clone is hidden with opacity 0; the export uses the source's.
-    if (themed) rootStyle.opacity = getComputedStyle(source).opacity;
+    // The live component is measured; the detached clone only supplies embedded assets.
+    const rootStyle = styleRecord(getComputedStyle(source));
     const root = {
       kind: "element", tag: source.localName, node: source, copy: clone, clip: false,
       rect: { x: 0, y: 0, width: origin.width, height: origin.height }, style: rootStyle, children: []
     };
     root.clip = [rootStyle["overflow-x"], rootStyle["overflow-y"]].some(value => ["hidden", "clip", "scroll", "auto"].includes(value));
-    scenePseudo("::before", measuredRoot, clone, root.children);
-    await walk(measuredRoot, clone, root);
-    scenePseudo("::after", measuredRoot, clone, root.children);
-    return { root, width, height, themed };
+    scenePseudo("::before", source, clone, root.children);
+    await walk(source, clone, root);
+    scenePseudo("::after", source, clone, root.children);
+    return { root, width, height };
   }
 
   // ---- styles -------------------------------------------------------------
@@ -486,7 +372,7 @@
 
   // Freezes the clone's resolved styles and returns the style sheet that goes
   // with it into the PNG.
-  async function exportStyles({ originals, copies, map, styleAt, inlineAsset, rootChrome, width, height, pace, vector }) {
+  async function exportStyles({ originals, copies, styleAt, inlineAsset, rootChrome, width, height, pace, vector }) {
     const names = properties();
     // Local SVG fragment references are preserved; other assets are embedded.
     const embed = async value => {
@@ -502,7 +388,6 @@
       for (const property of names) {
         let value = style.getPropertyValue(property);
         if (value.includes("url(")) value = await embed(value);
-        if (map) value = map(property, value);
         if (OWN.has(property)) own += `${property}:${value};`;
         else shared += `${property}:${value};`;
       }
@@ -527,7 +412,6 @@
     }
     const root = copies[0];
     root.remove();
-    for (const name of ["inert", "aria-hidden", "data-ui-export-staged"]) root.removeAttribute(name);
     if (vector) {
       copies.forEach((copy, index) => { if (styles[index]) copy.setAttribute("style", styles[index].shared + styles[index].own); });
       return "";
@@ -554,25 +438,5 @@
     return [...sheet].map(([text, id]) => `[data-ui-export-style="${id}"]{${text}${FROZEN}caret-color:transparent!important;}`).concat(pseudoRules).join("\n");
   }
 
-  /**
-   * The distinct colours of a component as a colour mode shows them, most used
-   * first. Replacement colours are keyed by these.
-   */
-  function colors(source, theme) {
-    const Theme = globalThis.__chatgptUIExportTheme;
-    const config = { ...Theme.normalize(theme), palette: {}, font: "", radius: 1 };
-    const originals = [source, ...source.querySelectorAll("*")];
-    if (originals.length > MAX_NODES) throw new Error("选取内容过多，请缩小选取范围。");
-    if (config.mode === "page") return Theme.collectColors(originals, node => getComputedStyle(node));
-    const clone = source.cloneNode(true);
-    const copies = [clone, ...clone.querySelectorAll("*")];
-    try {
-      stage(source, clone, copies, config, source.getBoundingClientRect());
-      return Theme.collectColors(copies, node => getComputedStyle(node));
-    } finally {
-      clone.remove();
-    }
-  }
-
-  globalThis.__chatgptUIExportCapture = Object.freeze({ version: VERSION, build, colors, STYLE_PROPERTIES });
+  globalThis.__chatgptUIExportCapture = Object.freeze({ version: VERSION, build, STYLE_PROPERTIES });
 })();

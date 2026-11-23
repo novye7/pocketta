@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ChatGPT UI 导出",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "把 ChatGPT 智能 UI 组件导出为 PNG 或 SVG：悬停即选，方向键切换。",
   "permissions": [
     "scripting",

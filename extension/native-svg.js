@@ -1,6 +1,6 @@
 (() => {
   "use strict";
-  const VERSION = "0.8.0";
+  const VERSION = "0.9.0";
   if (globalThis.__chatgptUIExportSVG?.version === VERSION) return;
   const NS = "http://www.w3.org/2000/svg";
   const XLINK = "http://www.w3.org/1999/xlink";
@@ -105,14 +105,13 @@
     });
   }
 
-  function render({ scene, config, ambient = "transparent", surface = "page", outline = false, signal }) {
-    const Theme = globalThis.__chatgptUIExportTheme;
+  function render({ scene, ambient = "transparent", surface = "page", outline = false, signal }) {
+    const Color = globalThis.__chatgptUIExportColor;
     const check = () => {
       if (signal?.aborted) throw new DOMException("导出已取消", "AbortError");
     };
     check();
-    const geo = Theme.geometry(scene.width, scene.height, config.canvas);
-    const { width, height } = geo;
+    const { width, height } = scene;
     const root = document.createElementNS(NS, "svg");
     root.setAttribute("xmlns", NS);
     root.setAttribute("xmlns:xlink", XLINK);
@@ -134,7 +133,7 @@
 
     // ---- paint helpers ----
     const resolve = value => {
-      const parsed = Theme.resolveColor(value);
+      const parsed = Color.resolveColor(value);
       return parsed || TRANSPARENT;
     };
     const paint = (value, name = "fill") => {
@@ -142,7 +141,7 @@
       // Alpha lives only in the opacity attribute; putting it in the colour too
       // would apply it twice.
       const opacity = name === "stop-color" ? "stop-opacity" : `${name}-opacity`;
-      return { [name]: Theme.formatOpaque(parsed), ...(parsed.a < 1 ? { [opacity]: number(parsed.a) } : {}) };
+      return { [name]: Color.formatOpaque(parsed), ...(parsed.a < 1 ? { [opacity]: number(parsed.a) } : {}) };
     };
     // Fills a colourless slot with a value the palette can still reach.
     const paintGradient = (value, box, parent) => {
@@ -150,7 +149,7 @@
       if (!gradient) return null;
       const id = nextId("ui-gradient");
       const node = gradient.kind === "linear"
-        ? create("linearGradient", { id, gradientUnits: "userSpaceOnUse", ...Theme.gradientLine(box, gradient.degrees) }, defs)
+        ? create("linearGradient", { id, gradientUnits: "userSpaceOnUse", ...Color.gradientLine(box, gradient.degrees) }, defs)
         : create("radialGradient", {
           id, gradientUnits: "objectBoundingBox",
           cx: number(gradient.cx), cy: number(gradient.cy), r: number(gradient.shape === "circle" ? 0.5 : 0.7071)
@@ -440,7 +439,7 @@
       const box = record.rect;
       const style = record.style;
       const size = Math.min(box.width, box.height);
-      const accent = globalThis.__chatgptUIExportTheme.resolveColor(style["accent-color"]) ? style["accent-color"] : style.color;
+      const accent = Color.resolveColor(style["accent-color"]) ? style["accent-color"] : style.color;
       const attrs = { ...paint(record.checked ? accent : "rgb(255, 255, 255)"), stroke: "#999999", "stroke-width": 1 };
       if (record.control === "radio") {
         create("circle", { cx: number(box.x + box.width / 2), cy: number(box.y + box.height / 2), r: number(Math.max(0, size / 2 - 1)), ...attrs }, parent);
@@ -489,10 +488,7 @@
     if (ambient && ambient !== "transparent" && surface !== "transparent") {
       create("rect", { x: 0, y: 0, width: number(width), height: number(height), ...paint(ambient) });
     }
-    const clipUrl = Theme.paintSVG({ create, defs, root }, geo, config.canvas, nextId("ui-canvas"));
-    // The clip is in canvas coordinates, so it sits outside the translated group.
-    const clipped = clipUrl ? create("g", { "clip-path": clipUrl }) : root;
-    const content = create("g", { transform: `translate(${number(geo.content.x)} ${number(geo.content.y)})` }, clipped);
+    const content = create("g", { transform: "translate(0 0)" }, root);
     const { root: sceneRoot } = scene;
     const outer = create("g", {}, content);
     // The root paints its own box (border, radius, background) too. Its rects

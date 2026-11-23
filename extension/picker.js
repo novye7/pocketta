@@ -1,6 +1,6 @@
 (() => {
   "use strict";
-  const VERSION = "0.8.0";
+  const VERSION = "0.9.0";
   if (location.origin !== "https://chatgpt.com") return;
   // Set by the hover button: the component to start with.
   const pending = globalThis.__chatgptUIExportTarget;
@@ -17,16 +17,9 @@
   document.getElementById("chatgpt-ui-exporter")?.remove();
 
   const Components = globalThis.__chatgptUIExportComponents;
-  const Theme = globalThis.__chatgptUIExportTheme;
+  const Color = globalThis.__chatgptUIExportColor;
   const SETTINGS_KEY = "chatgpt-ui-export.settings";
-  const MAX_SWATCHES = 8;
-  const FOLD_ROOM = 220;     // room a folded row needs to open on the side away from the component
-  // Font choices by key; the families are what a theme stores.
-  const FONTS = [
-    ["", "默认", ""], ["serif", "衬线", 'Georgia, "Songti SC", serif'],
-    ["round", "圆体", '"SF Pro Rounded", "PingFang SC", sans-serif'], ["kai", "楷体", '"Kaiti SC", serif']
-  ];
-  const ROLES = { background: "背景", text: "文字", border: "边框", fill: "填充", stroke: "描边", shadow: "阴影" };
+  const FOLD_ROOM = 120;     // room a folded row needs to open on the side away from the component
   const GAP = 3;             // space between a component and the ring around it
   const MARGIN = 12;         // the bar keeps this distance from the window edges
   const TOP_SAFE = 60;       // clears ChatGPT's header
@@ -35,18 +28,18 @@
   const mac = /Mac|iPhone|iPad/.test(navigator.platform);
   const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
   const storage = typeof chrome !== "undefined" && chrome.storage?.local ? chrome.storage.local : null;
-  const settings = { format: "png", scale: 2, transparent: false, outlined: false, theme: Theme?.defaults() };
+  const settings = { format: "png", scale: 2, transparent: false, outlined: false, hinted: 0 };
   const save = () => { storage?.set({ [SETTINGS_KEY]: { ...settings } }).catch(() => {}); };
   const restored = (async () => {
     try {
-      presets = await Theme.readPresets();
       const stored = (await storage?.get(SETTINGS_KEY))?.[SETTINGS_KEY];
       if (!stored || typeof stored !== "object") return;
       if (["png", "svg"].includes(stored.format)) settings.format = stored.format;
       if ([1, 2, 3].includes(stored.scale)) settings.scale = stored.scale;
       settings.transparent = Boolean(stored.transparent);
       settings.outlined = Boolean(stored.outlined);
-      if (stored.theme) settings.theme = Theme.normalize(stored.theme);
+      const hinted = Number(stored.hinted);
+      if (Number.isInteger(hinted) && hinted > 0) settings.hinted = Math.min(hinted, 3);
     } catch { /* Settings are optional; the defaults stay in place. */ }
   })();
 
@@ -55,7 +48,6 @@
     up: svg('<path d="m6.5 14.5 5.5-5.5 5.5 5.5"/>'),
     down: svg('<path d="m6.5 9.5 5.5 5.5 5.5-5.5"/>'),
     options: svg('<path d="M4 8h8m6 0h2M4 16h2m6 0h8"/><circle cx="15" cy="8" r="2.6"/><circle cx="9" cy="16" r="2.6"/>'),
-    theme: svg('<circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 0 0 16Z" fill="currentColor" stroke="none"/>'),
     copy: svg('<rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M15 5.5A1.5 1.5 0 0 0 13.5 4H5.5A1.5 1.5 0 0 0 4 5.5v8A1.5 1.5 0 0 0 5.5 15"/>'),
     download: svg('<path d="M12 4v11m-4.5-4.5L12 15l4.5-4.5M5 19.5h14"/>'),
     close: svg('<path d="m7 7 10 10M17 7 7 17"/>'),
@@ -63,10 +55,7 @@
     spinner: svg('<path d="M12 3.5a8.5 8.5 0 1 1-8.5 8.5"/>', ' class="spin"')
   };
   const labels = { copy: ["复制", "已复制"], download: ["下载", "已下载"] };
-  const segment = (id, name, options, extra = "") => `<div class="seg${extra}" id="${id}" role="radiogroup" aria-label="${name}"><i class="thumb"></i>${options.map(([value, text, tip]) => `<button role="radio" data-value="${value}"${tip ? ` data-tip="${tip}"` : ""}>${text}</button>`).join("")}</div>`;
-
-  const slider = (id, name, min, max, step) => `<input type="range" id="${id}" aria-label="${name}" min="${min}" max="${max}" step="${step}"><output class="value" id="${id}-value"></output>`;
-  const color = (id, name, when) => `<input type="color" id="${id}" aria-label="${name}" title="${name}" data-bg="${when}">`;
+  const segment = (id, name, options, extra = "") => `<div class="seg${extra}" id="${id}" role="radiogroup" aria-label="${name}"><i class="thumb"></i>${options.map(([value, text, tip, key]) => `<button role="radio" data-value="${value}"${tip ? ` data-tip="${tip}"` : ""}${key ? ` data-key="${key}"` : ""}>${text}</button>`).join("")}</div>`;
 
   const TEMPLATE = `
     <style>
@@ -100,8 +89,11 @@
         cursor:pointer; white-space:nowrap; transition:background .12s ease,opacity .12s ease,scale .12s ease,color .12s ease; }
       button:hover { background:var(--hover); }
       button:active { scale:.95; }
+      #more:active { scale:1; }
       button:focus-visible { box-shadow:0 0 0 2px var(--accent); }
       button:disabled { opacity:.4; cursor:default; scale:1; }
+      button[aria-expanded="true"] { background:var(--inset); color:var(--accent); }
+      button[aria-expanded="true"]:hover { background:var(--inset); }
       button.icon { padding:0; }
       svg { width:18px; height:18px; flex:none; }
       .glyph { display:flex; }
@@ -110,7 +102,7 @@
       .label { min-width:3em; text-align:center; }
       .primary { padding:0 12px 0 10px; background:var(--ink); color:var(--ink-fg); font-weight:600; }
       .primary:hover { background:var(--ink); opacity:.86; }
-      .sep { flex:none; width:1px; height:18px; margin:0 4px; background:var(--line); }
+      .sep { flex:none; align-self:center; width:1px; height:16px; margin:0 4px; background:var(--line); }
       .lead { display:none; padding:0 8px 0 6px; color:var(--muted); white-space:nowrap; }
       .bar[data-idle] .lead { display:block; }
       .bar[data-idle] .t { display:none!important; }
@@ -128,51 +120,26 @@
       .fold[data-open] { grid-template-rows:1fr; }
       .fold > div { min-height:0; overflow:hidden; }
       .fold:not([data-open]) > div { visibility:hidden; transition:visibility 0s .26s; }
-      .panel { margin-top:6px; border-top:1px solid var(--line); }
-      .bar[data-grow="up"] .panel { margin:0 0 6px; border-top:0; border-bottom:1px solid var(--line); }
-      .options { display:grid; grid-template-columns:auto 1fr; align-items:center; gap:8px 14px; padding:10px 6px 2px; }
-      .name { color:var(--muted); font-size:12px; }
-      .field { display:flex; flex-direction:column; align-items:flex-start; gap:5px; min-width:0; }
-      .note { color:var(--muted); font-size:11px; line-height:1.4; }
-      output { font-size:12px; font-variant-numeric:tabular-nums; }
-      .hints { display:flex; flex-wrap:wrap; gap:6px 12px; padding:10px 6px 4px; color:var(--muted); font-size:11px; }
-      .bar[data-grow="up"] .hints { padding-bottom:10px; }
+      /* Every extra row uses the same gap, type size and height, whichever side it opens on. */
+      .panel, .message, .hints { margin-top:4px; }
+      .bar[data-grow="up"] .panel, .bar[data-grow="up"] .message, .bar[data-grow="up"] .hints { margin-top:0; margin-bottom:4px; }
+      .options, .message, .hints { display:flex; flex-wrap:wrap; align-items:center; gap:6px 12px; min-height:32px; color:var(--muted); font-size:12px; line-height:1.4; }
+      .options { gap:6px 14px; }
+      .options .sep { margin:0 -4px; }
+      .opt { display:inline-flex; align-items:center; gap:6px; min-width:0; }
+      .name { color:var(--muted); font-size:12px; font-weight:500; }
+      #size { color:var(--muted); font-size:12px; font-variant-numeric:tabular-nums; }
       .hints span { display:inline-flex; align-items:center; gap:3px; white-space:nowrap; }
       kbd { min-width:18px; padding:2px 4px; border-radius:5px; background:var(--inset); color:var(--fg); font:inherit; font-size:10.5px; text-align:center; }
-      .message { display:flex; align-items:center; justify-content:space-between; gap:10px; margin:0; padding:8px 6px 2px 8px; font-size:12px; line-height:1.5; white-space:normal; }
-      .bar[data-grow="up"] .message { padding:2px 6px 8px 8px; }
+      .message { justify-content:space-between; width:100%; white-space:normal; }
       #notice[data-kind="error"] .message { color:var(--danger); }
       .message button { height:26px; min-width:0; padding:0 10px; border-radius:8px; background:var(--inset); color:var(--fg); }
 
-      /* The theme panel. It scrolls inside the room the window leaves for it. */
-      .scroll { max-height:min(360px,var(--room,360px)); overflow-y:auto; overscroll-behavior:contain; }
-      .line { display:flex; flex-direction:row; align-items:center; gap:6px; align-self:stretch; min-width:0; }
-      .chips { display:flex; flex-wrap:wrap; align-items:center; gap:4px; min-width:0; }
-      .chip { display:block; height:26px; min-width:0; max-width:12em; padding:0 10px; border-radius:8px; overflow:hidden; background:var(--inset); color:var(--muted); font-size:12px; line-height:26px; text-align:center; text-overflow:ellipsis; }
-      .chip:hover { background:var(--inset); color:var(--fg); }
-      .chip[aria-pressed="true"] { background:var(--ink); color:var(--ink-fg); }
-      .chip.plain { background:none; color:var(--accent); }
-      .chip.plain:hover { background:var(--hover); }
-      .chip.solid,.chip.solid:hover { background:var(--ink); color:var(--ink-fg); }
-      #themes .name { min-width:4em; }
-      input { margin:0; font:inherit; }
-      input[type="range"] { flex:1; width:0; min-width:70px; height:20px; accent-color:var(--accent); cursor:pointer; }
-      input[type="color"] { flex:none; width:26px; height:26px; padding:0; border:0; border-radius:8px; overflow:hidden; background:none; box-shadow:0 0 0 1px var(--line); cursor:pointer; }
-      input[type="color"]::-webkit-color-swatch-wrapper { padding:0; }
-      input[type="color"]::-webkit-color-swatch { border:0; }
-      input[type="text"] { flex:1; width:0; min-width:80px; height:26px; padding:0 8px; border:0; border-radius:8px; outline:none; background:var(--inset); color:var(--fg); font-size:12px; user-select:text; -webkit-user-select:text; }
-      input:focus-visible { box-shadow:0 0 0 2px var(--accent); }
-      .value { min-width:2.8em; text-align:right; }
-      .swatch { position:relative; display:flex; }
-      .swatch[data-changed]::before { content:""; position:absolute; right:-3px; top:-3px; z-index:1; width:8px; height:8px; border-radius:50%; background:var(--accent); box-shadow:0 0 0 1.5px var(--thumb); }
-      .dot { position:absolute; right:4px; top:4px; width:7px; height:7px; border-radius:50%; background:var(--accent); scale:0; transition:scale .16s ease; }
-      #theme[data-on] .dot { scale:1; }
-      @media (max-width:380px) { #themes .options { grid-template-columns:1fr; gap:4px; } #themes .name { margin-top:6px; } }
-
-      [data-tip]:not([data-tip=""])::after { content:attr(data-tip); position:absolute; left:50%; bottom:calc(100% + 12px); z-index:2; padding:6px 8px; border-radius:8px; background:var(--ink); color:var(--ink-fg);
-        font-size:11px; font-weight:500; letter-spacing:0; line-height:1; white-space:pre; pointer-events:none; opacity:0; translate:-50% 4px; transition:opacity .12s ease,translate .12s ease; }
-      [data-tip]:hover::after,[data-tip]:focus-visible::after { opacity:1; translate:-50% 0; transition-delay:.5s; }
-      .bar[data-flip] [data-tip]::after { top:calc(100% + 12px); bottom:auto; }
+      .tip { position:absolute; z-index:3; display:flex; align-items:center; gap:6px; max-width:240px; padding:6px 8px; border-radius:8px; background:var(--ink); color:var(--ink-fg);
+        font-size:11px; font-weight:500; letter-spacing:0; line-height:1.35; pointer-events:none; opacity:0; transition:opacity .12s ease; }
+      .tip[data-on] { opacity:1; }
+      .tip kbd { min-width:16px; padding:1px 4px; border-radius:4px; background:color-mix(in srgb, var(--ink-fg) 16%, transparent); color:inherit; }
+      .tip kbd:empty { display:none; }
 
       :host([data-leaving]) .frame,:host([data-leaving]) .ring,:host([data-leaving]) .bar { opacity:0!important; transition:opacity .14s ease!important; }
       @keyframes flash { 0% { opacity:0; } 14% { opacity:var(--flash); } 100% { opacity:0; } }
@@ -188,68 +155,35 @@
     <div class="ring" id="ring"></div>
     <div class="bar" id="bar" role="toolbar" aria-label="导出组件" tabindex="-1" data-grow="up">
       <div class="row">
-        <button id="prev" class="icon" aria-label="上一个组件" data-tip="上一个组件  ↑">${icons.up}</button>
-        <button id="next" class="icon" aria-label="下一个组件" data-tip="下一个组件  ↓">${icons.down}</button>
+        <button id="prev" class="icon" aria-label="上一个组件" data-tip="上一个组件" data-key="↑">${icons.up}</button>
+        <button id="next" class="icon" aria-label="下一个组件" data-tip="下一个组件" data-key="↓">${icons.down}</button>
         <span class="lead" id="lead"></span>
         <i class="sep t"></i>
-        ${segment("format", "导出格式", [["png", "PNG", "PNG 图片  P"], ["svg", "SVG", "SVG 矢量图  S"]], " t")}
+        ${segment("format", "导出格式", [["png", "PNG", "PNG 图片", "P"], ["svg", "SVG", "SVG 矢量图", "S"]], " t")}
         <button id="more" class="icon t" aria-label="导出选项" aria-expanded="false" data-tip="选项">${icons.options}</button>
-        <button id="theme" class="icon t" aria-label="主题" aria-expanded="false" data-tip="主题">${icons.theme}<i class="dot"></i></button>
         <i class="sep t"></i>
-        <button id="copy" class="t" data-tip=""><span class="glyph">${icons.copy}</span><span class="label">复制</span></button>
-        <button id="download" class="t primary" data-tip="下载文件  ↵"><span class="glyph">${icons.download}</span><span class="label">下载</span></button>
+        <button id="copy" class="t" data-tip="" data-key=""><span class="glyph">${icons.copy}</span><span class="label">复制</span></button>
+        <button id="download" class="t primary" data-tip="下载文件" data-key="↵"><span class="glyph">${icons.download}</span><span class="label">下载</span></button>
         <i class="sep"></i>
-        <button id="close" class="icon" aria-label="退出导出" data-tip="退出  Esc">${icons.close}</button>
+        <button id="close" class="icon" aria-label="退出导出" data-tip="退出" data-key="Esc">${icons.close}</button>
       </div>
-      <div class="fold" id="notice" role="status"><div><p class="message"><span id="notice-text"></span><button id="notice-action" hidden></button></p></div></div>
       <div class="fold t" id="drawer"><div><div class="panel">
         <div class="options">
-          <span class="name" data-for="png">清晰度</span>
-          <div class="field" data-for="png">${segment("scale", "清晰度", [["1", "1×"], ["2", "2×"], ["3", "3×"]])}</div>
-          <span class="name" data-for="svg">文字</span>
-          <div class="field" data-for="svg">${segment("text", "文字", [["live", "可编辑"], ["outline", "转为轮廓"]])}<span class="note" id="text-note"></span></div>
-          <span class="name">背景</span>
-          <div class="field">${segment("surface", "背景", [["page", "页面底色"], ["transparent", "透明"]])}</div>
-          <span class="name">尺寸</span>
-          <output id="size"></output>
-        </div>
-        <div class="hints">
-          <span><kbd>↑</kbd><kbd>↓</kbd>切换组件</span><span><kbd>←</kbd><kbd>→</kbd>调整范围</span><span><kbd>↵</kbd>下载</span><span><kbd>${mac ? "⌘" : "Ctrl+"}C</kbd>复制</span><span><kbd>Esc</kbd>退出</span>
+          <span class="opt"><span class="name">背景</span>${segment("surface", "背景", [["page", "页面底色"], ["transparent", "透明"]])}</span>
+          <span class="opt" data-for="png"><span class="name">清晰度</span>${segment("scale", "清晰度", [["1", "1×"], ["2", "2×"], ["3", "3×"]])}</span>
+          <span class="opt" data-for="svg"><span class="name">文字</span>${segment("text", "文字", [["live", "可编辑", "文件小、可编辑；其他软件可能替换字体。"], ["outline", "转为轮廓", "外观保持不变，文字不能再编辑。"]])}</span>
+          <i class="sep"></i><output id="size"></output>
         </div>
       </div></div></div>
-      <div class="fold t" id="themes"><div><div class="panel scroll">
-        <div class="options">
-          <span class="name">预设</span>
-          <div class="field">
-            <div class="chips"><span id="presets" style="display:contents"></span><button class="chip plain" id="preset-new">保存为预设</button><button class="chip plain" id="preset-delete">删除</button></div>
-            <div class="line" id="preset-form" hidden><input type="text" id="preset-name" maxlength="40" placeholder="预设名称" aria-label="预设名称" spellcheck="false" autocomplete="off"><button class="chip solid" id="preset-save">保存</button></div>
-          </div>
-          <span class="name">配色</span>
-          <div class="field">${segment("mode", "配色", [["page", "跟随页面"], ["light", "浅色"], ["dark", "深色"]])}</div>
-          <span class="name">换色</span>
-          <div class="field"><div class="chips"><span id="colors" style="display:contents"></span><button class="chip plain" id="colors-reset">还原</button></div><span class="note" id="colors-note"></span></div>
-          <span class="name">字体</span>
-          <div class="field">${segment("font", "字体", FONTS.map(([key, text]) => [key, text]))}</div>
-          <span class="name">圆角</span>
-          <div class="field"><div class="line">${slider("radius", "组件圆角倍数", 0, 3, 0.25)}</div></div>
-          <span class="name">画布</span>
-          <div class="field">
-            ${segment("canvas-bg", "画布背景", [["none", "无"], ["solid", "纯色"], ["gradient", "渐变"]])}
-            <div class="line" data-bg="solid gradient">${color("bg-color", "画布颜色", "solid")}${color("bg-from", "渐变起始色", "gradient")}${color("bg-to", "渐变结束色", "gradient")}<span class="line" data-bg="gradient" style="flex:1">${slider("bg-angle", "渐变角度", 0, 360, 15)}</span></div>
-          </div>
-          <span class="name">留白</span>
-          <div class="field"><div class="line">${slider("padding", "画布留白", 0, 160, 4)}</div></div>
-          <span class="name" data-bg="solid gradient">画布圆角</span>
-          <div class="field" data-bg="solid gradient"><div class="line">${slider("canvas-radius", "画布圆角", 0, 64, 2)}</div></div>
-          <span class="name" data-bg="solid gradient">阴影</span>
-          <div class="field" data-bg="solid gradient">${segment("canvas-shadow", "画布阴影", [["none", "无"], ["soft", "柔和"], ["medium", "中等"], ["strong", "明显"]])}</div>
-        </div>
+      <div class="fold" id="notice" role="status"><div><p class="message"><span id="notice-text"></span><button id="notice-action" hidden></button></p></div></div>
+      <div class="fold" id="hints"><div><div class="hints">
+        <span><kbd>↑</kbd><kbd>↓</kbd>切换组件</span><span><kbd>←</kbd><kbd>→</kbd>调整范围</span><span><kbd>↵</kbd>下载</span><span><kbd>${mac ? "⌘" : "Ctrl+"}C</kbd>复制</span><span><kbd>Esc</kbd>退出</span><span><kbd>?</kbd>快捷键</span>
       </div></div></div>
+      <div class="tip" id="tip" hidden aria-hidden="true"><span id="tip-text"></span><kbd id="tip-key"></kbd></div>
     </div>
     <div class="sr" id="live" aria-live="polite"></div>`;
 
   let session = null;
-  let presets = {};          // saved themes by name
 
   function create() {
     const lifetime = new AbortController();
@@ -367,165 +301,96 @@
       if (!node) return;
       const rect = node.getBoundingClientRect();
       const factor = settings.format === "png" ? settings.scale : 1;
-      // The canvas around the component counts; a font or radius change can still shift the result a little.
-      const whole = Theme.geometry(Math.ceil(rect.width), Math.ceil(rect.height), settings.theme.canvas);
-      $("size").textContent = `${Math.round(whole.width * factor)} × ${Math.round(whole.height * factor)}${settings.format === "png" ? " 像素" : ""}`;
+      $("size").textContent = `${Math.round(Math.ceil(rect.width) * factor)} × ${Math.round(Math.ceil(rect.height) * factor)}`;
     }
 
-    // ---- theme --------------------------------------------------------------
+    // ---- options, hints, tooltips -------------------------------------------
 
-    // Two themes are the same when they export the same way, whatever order their colours were replaced in.
-    const fingerprint = theme => JSON.stringify({ ...theme, palette: Object.entries(theme.palette).sort() });
-    const presetNames = () => Object.keys(presets).sort((a, b) => a.localeCompare(b, "zh"));
-    // The saved preset the current theme matches, if any.
-    const activePreset = () => {
-      const now = fingerprint(settings.theme);
-      return presetNames().find(name => fingerprint(Theme.normalize(presets[name])) === now) ?? null;
+    let hintsDesired = false;
+    let hintsHold = false;
+    let hintsTimer = 0;
+    let tipTimer = 0;
+    let tipColdTimer = 0;
+    let tipTarget = null;
+    let tipWarm = false;
+
+    const applyHints = () => {
+      $("hints").toggleAttribute("data-open", hintsDesired && !$("notice").hasAttribute("data-open"));
     };
 
-    function syncPresets() {
-      const box = $("presets");
-      const plain = Theme.isDefault(settings.theme);
-      const active = plain ? null : activePreset();
-      const state = JSON.stringify([presetNames(), plain, active]);
-      if (box.dataset.state !== state) {
-        box.dataset.state = state;
-        const focused = shadow.activeElement?.closest?.("#presets") ? shadow.activeElement.dataset.preset : null;
-        box.replaceChildren(...[["", "默认", plain], ...presetNames().map(name => [name, name, name === active])].map(([name, text, on]) => {
-          const chip = document.createElement("button");
-          chip.className = "chip";
-          chip.dataset.preset = name;
-          chip.textContent = text;
-          chip.setAttribute("aria-pressed", String(on));
-          return chip;
-        }));
-        if (focused !== null) [...box.children].find(chip => chip.dataset.preset === focused)?.focus({ preventScroll: true });
-      }
-      const naming = !$("preset-form").hidden;
-      // A theme can be saved once it differs from the default and from every saved one.
-      $("preset-new").hidden = plain || active !== null || naming;
-      $("preset-delete").hidden = active === null || naming;
+    // `?` toggles the list and keeps it up. The first few opens show it on their own.
+    function toggleHints() {
+      clearTimeout(hintsTimer);
+      hintsHold = true;
+      hintsDesired = !hintsDesired;
+      applyHints();
     }
 
-    function syncThemeControls() {
-      const theme = settings.theme;
-      const { canvas } = theme;
-      const { background } = canvas;
-      for (const node of shadow.querySelectorAll("[data-bg]")) node.hidden = !node.dataset.bg.split(" ").includes(background.type);
-      syncSegment("mode", theme.mode);
-      // A font from an older preset that is not on the list is kept, with no choice marked.
-      syncSegment("font", FONTS.find(font => font[2] === theme.font)?.[0] ?? null);
-      syncSegment("canvas-bg", background.type);
-      syncSegment("canvas-shadow", canvas.shadow);
-      for (const [id, value, text] of [
-        ["radius", theme.radius, `${theme.radius}×`], ["padding", canvas.padding, canvas.padding],
-        ["canvas-radius", canvas.radius, canvas.radius], ["bg-angle", background.angle, `${background.angle}°`]
-      ]) {
-        $(id).value = value;
-        $(`${id}-value`).textContent = text;
-      }
-      for (const key of ["color", "from", "to"]) $(`bg-${key}`).value = Theme.formatOpaque(Theme.resolveColor(background[key]));
-      for (const swatch of $("colors").children) {
-        const replaced = theme.palette[swatch.dataset.key];
-        swatch.toggleAttribute("data-changed", Boolean(replaced));
-        swatch.firstElementChild.value = replaced || swatch.dataset.color;
-      }
-      $("colors-reset").hidden = Theme.isPlain(theme);
-      $("theme").toggleAttribute("data-on", !Theme.isDefault(theme));
-      syncPresets();
-    }
-
-    // Lists the component's colours so each can be replaced. Replacements are
-    // keyed by the colours of the chosen colour mode, so they are read in it.
-    function syncColors() {
-      const node = current();
-      if (!node || !$("themes").hasAttribute("data-open")) return;
-      let found = [];
-      let problem = "";
-      try {
-        found = globalThis.__chatgptUIExportCapture.colors(node, settings.theme).slice(0, MAX_SWATCHES);
-      } catch (error) {
-        problem = error.message || "无法读取组件颜色。";
-      }
-      $("colors").replaceChildren(...found.map(entry => {
-        const swatch = document.createElement("label");
-        swatch.className = "swatch";
-        swatch.dataset.key = entry.key;
-        swatch.dataset.color = entry.color;
-        const input = document.createElement("input");
-        input.type = "color";
-        input.title = `${ROLES[entry.role]} ${entry.color}`;
-        input.setAttribute("aria-label", `替换${ROLES[entry.role]}颜色 ${entry.color}`);
-        swatch.append(input);
-        return swatch;
-      }));
-      $("colors-note").textContent = problem || (found.length ? "点击色块，替换组件里的这种颜色。" : "这个组件没有可替换的颜色。");
-      syncThemeControls();
-    }
-
-    function setTheme(theme) {
-      settings.theme = Theme.normalize(theme);
-      sync();
+    function showCoach() {
+      if (closed || hintsHold || settings.hinted >= 3) return;
+      settings.hinted += 1;
       save();
+      hintsDesired = true;
+      applyHints();
+      hintsTimer = setTimeout(() => {
+        if (hintsHold || closed) return;
+        hintsDesired = false;
+        applyHints();
+      }, 8000);
     }
 
-    function restyle(change) {
-      const next = structuredClone(settings.theme);
-      change(next);
-      setTheme(next);
+    function placeTip(button) {
+      const tip = $("tip");
+      if (tip.hidden) return;
+      const barRect = bar.getBoundingClientRect();
+      const rect = button.getBoundingClientRect();
+      const tipWidth = tip.offsetWidth;
+      const tipHeight = tip.offsetHeight;
+      const min = 8 - barRect.left;
+      const max = innerWidth - 8 - barRect.left - tipWidth;
+      const left = Math.min(Math.max(rect.left + rect.width / 2 - barRect.left - tipWidth / 2, min), Math.max(min, max));
+      let top = bar.dataset.grow === "up" ? -tipHeight - 8 : bar.offsetHeight + 8;
+      if (barRect.top + top < 8) top = bar.offsetHeight + 8;
+      else if (barRect.top + top + tipHeight > innerHeight - 8) top = -tipHeight - 8;
+      tip.style.left = `${Math.round(left)}px`;
+      tip.style.top = `${Math.round(top)}px`;
     }
 
-    function namePreset(open) {
-      // The keyboard goes back to the bar before the field it was in is hidden.
-      if (!open && shadow.activeElement?.closest("#preset-form")) bar.focus({ preventScroll: true });
-      $("preset-form").hidden = !open;
-      syncPresets();
-      if (!open) return;
-      $("preset-name").value = "";
-      $("preset-name").focus({ preventScroll: true });
+    function hideTip() {
+      clearTimeout(tipTimer);
+      tipTarget = null;
+      const tip = $("tip");
+      tip.removeAttribute("data-on");
+      tip.hidden = true;
     }
 
-    async function storePreset(name, theme) {
-      if (!name) return;
-      try {
-        presets = await (theme ? Theme.savePreset(name, theme) : Theme.deletePreset(name));
-        if (closed) return;
-        namePreset(false);
-        announce(theme ? `已保存预设 ${name}` : `已删除预设 ${name}`);
-      } catch {
-        if (!closed) notice(theme ? "无法保存预设，请重新加载扩展后重试。" : "无法删除预设，请重新加载扩展后重试。", { kind: "error" });
-      }
+    function showTip(button) {
+      const text = button?.dataset.tip;
+      if (!text || button.offsetWidth === 0) return hideTip();
+      const tip = $("tip");
+      $("tip-text").textContent = text;
+      $("tip-key").textContent = button.dataset.key || "";
+      tipTarget = button;
+      tip.hidden = false;
+      placeTip(button);
+      requestAnimationFrame(() => { if (tipTarget === button) tip.setAttribute("data-on", ""); });
     }
 
-    const THEME_FIELDS = {
-      radius: (theme, value) => { theme.radius = Number(value); },
-      padding: (theme, value) => { theme.canvas.padding = Number(value); },
-      "canvas-radius": (theme, value) => { theme.canvas.radius = Number(value); },
-      "bg-angle": (theme, value) => { theme.canvas.background.angle = Number(value); },
-      "bg-color": (theme, value) => { theme.canvas.background.color = value; },
-      "bg-from": (theme, value) => { theme.canvas.background.from = value; },
-      "bg-to": (theme, value) => { theme.canvas.background.to = value; }
-    };
-    const THEME_CHOICES = {
-      font: (theme, value) => { theme.font = FONTS.find(font => font[0] === value)?.[2] || ""; },
-      "canvas-bg": (theme, value) => { theme.canvas.background.type = value; },
-      "canvas-shadow": (theme, value) => { theme.canvas.shadow = value; },
-      // Replacement colours belong to one mode's colours, so they do not carry over.
-      mode: (theme, value) => { if (theme.mode !== value) theme.palette = {}; theme.mode = value; }
-    };
+    function armTip(button) {
+      clearTimeout(tipTimer);
+      clearTimeout(tipColdTimer);
+      tipTimer = setTimeout(() => {
+        tipWarm = true;
+        showTip(button);
+      }, tipWarm ? 40 : 500);
+    }
 
-    // Opens the options or the theme panel, or closes the one that is open.
-    function fold(id) {
-      const opening = !$(id).hasAttribute("data-open");
-      for (const [panel, trigger] of [["drawer", "more"], ["themes", "theme"]]) {
-        const open = opening && panel === id;
-        $(panel).toggleAttribute("data-open", open);
-        $(trigger).setAttribute("aria-expanded", String(open));
-      }
-      if (!opening || id !== "themes") namePreset(false);
+    function fold() {
+      const open = !$("drawer").hasAttribute("data-open");
+      $("drawer").toggleAttribute("data-open", open);
+      $("more").setAttribute("aria-expanded", String(open));
       aim();
       sync();
-      syncColors();
     }
 
     // Folded rows open away from the component, so they do not cover it,
@@ -543,10 +408,10 @@
       syncSegment("scale", settings.scale);
       syncSegment("text", settings.outlined ? "outline" : "live");
       syncSegment("surface", settings.transparent ? "transparent" : "page");
-      $("text-note").textContent = settings.outlined ? "在任何软件里外观一致，但文字不能再编辑。" : "文件小、可编辑；其他软件可能替换字体。";
-      $("copy").dataset.tip = `${settings.format === "png" ? "复制图片" : "复制 SVG 代码"}  ${mac ? "⌘C" : "Ctrl+C"}`;
-      syncThemeControls();
+      $("copy").dataset.tip = settings.format === "png" ? "复制图片" : "复制 SVG 代码";
+      $("copy").dataset.key = mac ? "⌘C" : "Ctrl+C";
       syncSize();
+      if (tipTarget) showTip(tipTarget);
     }
 
     function setFormat(value) {
@@ -565,6 +430,7 @@
       noticeRun = run;
       $("notice").dataset.kind = kind;
       $("notice").setAttribute("data-open", "");
+      applyHints();
       announce(text);
       if (timeout) noticeTimer = setTimeout(clearNotice, timeout);
     }
@@ -573,6 +439,7 @@
       clearTimeout(noticeTimer);
       noticeRun = null;
       $("notice").removeAttribute("data-open");
+      applyHints();
     }
 
     function setState(id, state) {
@@ -629,7 +496,6 @@
       setIdle(null);
       clearNotice();
       sync();
-      syncColors();
       const rect = node.getBoundingClientRect();
       announce(`已选中${Components.label(node)}，${Math.ceil(rect.width)} × ${Math.ceil(rect.height)}`);
       if (show) reveal(node);
@@ -857,7 +723,7 @@
       try {
         const result = await globalThis.__chatgptUIExportRenderer.render(node, {
           format: settings.format, scale: settings.scale, surface: settings.transparent ? "transparent" : "page",
-          text: settings.outlined ? "outline" : "live", theme: settings.theme, signal: controller.signal
+          text: settings.outlined ? "outline" : "live", signal: controller.signal
         });
         if (closed) return;
         if (kind === "copy") await copy(result);
@@ -965,13 +831,19 @@
       rowY = Math.min(Math.max(rowY, TOP_SAFE), Math.max(TOP_SAFE, floor));
       rowTop = rowY;
       if (barHeight <= rowHeight + 1) aim();
-      // The theme panel scrolls inside whatever the window leaves on that side.
-      const room = `${Math.max(120, Math.floor(bar.dataset.grow === "up" ? rowY - 8 : height - rowY - rowHeight - 8) - 20)}px`;
-      if (bar.style.getPropertyValue("--room") !== room) bar.style.setProperty("--room", room);
-      const y = bar.dataset.grow === "up" ? rowY + rowHeight - barHeight : rowY;
       x = Math.min(Math.max(x, MARGIN), Math.max(MARGIN, width - barWidth - MARGIN));
-      bar.style.transform = `translate(${Math.round(x)}px,${Math.round(Math.max(y, 8))}px)`;
-      bar.toggleAttribute("data-flip", y < 44);
+      // Growing upward is anchored on the bottom edge. Compensating the top from
+      // the animated height makes the buttons jump; a fixed bottom cannot.
+      if (bar.dataset.grow === "up") {
+        bar.style.top = "auto";
+        bar.style.bottom = `${Math.round(innerHeight - (rowY + rowHeight))}px`;
+        bar.style.transform = `translate(${Math.round(x)}px, 0)`;
+      } else {
+        bar.style.bottom = "auto";
+        bar.style.top = "0px";
+        bar.style.transform = `translate(${Math.round(x)}px, ${Math.round(Math.max(rowY, 8))}px)`;
+      }
+      if (tipTarget) placeTip(tipTarget);
       if (!bar.hasAttribute("data-on")) {
         bar.setAttribute("data-on", "");
         // Segment thumbs start in place and only animate from now on.
@@ -1027,15 +899,7 @@
         event.stopImmediatePropagation();
       };
       const key = event.key;
-      if (focused?.localName === "input" && (key !== "Escape" || event.isComposing)) {
-        // Typing and slider keys belong to the field, and stay out of the page's shortcuts.
-        event.stopImmediatePropagation();
-        if (key === "Enter" && focused.id === "preset-name" && !event.isComposing) $("preset-save").click();
-        return;
-      }
       if (event.isComposing || event.defaultPrevented) return;
-      // Esc leaves the preset name first, then the picker.
-      if (key === "Escape" && focused?.id === "preset-name") { take(); namePreset(false); return bar.focus({ preventScroll: true }); }
       if (key === "Escape") { take(); return close(); }
       if (event.altKey) return;
       if (event.metaKey || event.ctrlKey) {
@@ -1068,34 +932,49 @@
         case "c": take(); return run("copy");
         case "p": take(); return setFormat("png");
         case "s": take(); return setFormat("svg");
+        case "?": take(); return toggleHints();
         default:
       }
     }, { capture: true, signal });
 
+    bar.addEventListener("pointerover", event => {
+      const button = event.target.closest("button");
+      if (button && bar.contains(button)) armTip(button);
+    }, { signal });
+    bar.addEventListener("pointerout", event => {
+      const button = event.target.closest("button");
+      if (!button) return;
+      const next = event.relatedTarget instanceof Element ? event.relatedTarget.closest("button") : null;
+      if (next && bar.contains(next)) return;
+      clearTimeout(tipTimer);
+      hideTip();
+      tipColdTimer = setTimeout(() => { tipWarm = false; }, 700);
+    }, { signal });
+    bar.addEventListener("focusin", event => {
+      const button = event.target.closest("button");
+      if (button && bar.contains(button)) showTip(button);
+    }, { signal });
+    bar.addEventListener("focusout", event => {
+      const next = event.relatedTarget instanceof Element ? event.relatedTarget.closest("button") : null;
+      if (!next || !bar.contains(next)) hideTip();
+    }, { signal });
+    bar.addEventListener("pointerdown", () => hideTip(), { signal });
     bar.addEventListener("click", event => {
       const button = event.target.closest("button");
       if (!button || button.disabled) return;
+      // A pointer click would leave focus on the button, so the next arrow or
+      // Enter would act on it instead of the selection.
+      if (event.detail > 0) bar.focus({ preventScroll: true });
       const group = button.closest(".seg");
       if (group) {
         if (busy) return;
         const value = button.dataset.value;
         if (group.id === "format") return setFormat(value);
-        if (THEME_CHOICES[group.id]) {
-          restyle(theme => THEME_CHOICES[group.id](theme, value));
-          if (group.id === "mode") syncColors();
-          return;
-        }
         if (group.id === "scale") settings.scale = Number(value);
         else if (group.id === "text") settings.outlined = value === "outline";
         else settings.transparent = value === "transparent";
         sync();
         return save();
-      }
-      if (button.dataset.preset !== undefined) {
-        if (busy) return;
-        namePreset(false);
-        setTheme(button.dataset.preset ? presets[button.dataset.preset] : Theme.defaults());
-        return syncColors();
       }
       switch (button.id) {
         case "prev": return step(-1);
@@ -1104,23 +983,9 @@
         case "download": return run("download");
         case "close": return close();
         case "notice-action": return noticeRun?.();
-        case "more": return fold("drawer");
-        case "theme": return fold("themes");
-        case "colors-reset": return restyle(theme => { theme.palette = {}; });
-        case "preset-new": return namePreset(true);
-        case "preset-delete": return storePreset(activePreset(), null);
-        case "preset-save": {
-          const name = $("preset-name").value.trim();
-          return name ? storePreset(name, settings.theme) : $("preset-name").focus({ preventScroll: true });
-        }
+        case "more": return fold();
         default:
       }
-    }, { signal });
-    bar.addEventListener("input", event => {
-      const input = event.target;
-      const swatch = input.closest(".swatch");
-      if (swatch) restyle(theme => { theme.palette[swatch.dataset.key] = input.value; });
-      else if (THEME_FIELDS[input.id]) restyle(theme => THEME_FIELDS[input.id](theme, input.value));
     }, { signal });
     for (const [node, names] of [[frame, ["data-flash", "data-bump"]], [bar, ["data-shake"]]]) {
       node.addEventListener("animationend", event => {
@@ -1138,6 +1003,9 @@
       work?.abort();
       cancelAnimationFrame(raf);
       clearTimeout(noticeTimer);
+      clearTimeout(hintsTimer);
+      clearTimeout(tipTimer);
+      clearTimeout(tipColdTimer);
       for (const timer of stateTimers.values()) clearTimeout(timer);
       themeObserver.disconnect();
       // Hands the keyboard back to wherever it was, unless the page has moved focus since.
@@ -1156,7 +1024,7 @@
     }
 
     sync();
-    restored.then(() => { if (!closed) sync(); });
+    restored.then(() => { if (!closed) { sync(); showCoach(); } });
     bar.focus({ preventScroll: true });
     raf = requestAnimationFrame(draw);
     const api = { start, close };
@@ -1164,7 +1032,7 @@
   }
 
   function open(target) {
-    if (!Components || !Theme || !globalThis.__chatgptUIExportRenderer) return;
+    if (!Components || !Color || !globalThis.__chatgptUIExportRenderer) return;
     session ||= create();
     session.start(target);
   }
