@@ -1,0 +1,48 @@
+{
+  "manifest_version": 3,
+  "name": "ChatGPT UI 导出",
+  "version": "0.8.0",
+  "description": "把 ChatGPT 智能 UI 组件导出为 PNG 或 SVG：悬停即选，方向键切换。",
+  "permissions": [
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://chatgpt.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chatgpt.com/*"
+      ],
+      "js": [
+        "components.js",
+        "hover.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "ChatGPT UI 导出",
+    "default_icon": {
+      "16": "icons/16.png",
+      "32": "icons/32.png"
+    }
+  },
+  "commands": {
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Alt+Shift+E"
+      }
+    }
+  },
+  "icons": {
+    "16": "icons/16.png",
+    "32": "icons/32.png",
+    "48": "icons/48.png",
+    "128": "icons/128.png"
+  },
+  "background": {
+    "service_worker": "background.js"
+  }
+}
