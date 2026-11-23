@@ -32,6 +32,12 @@
         assert(visible.every(button => { const rect = button.getBoundingClientRect(); return rect.left >= bar.left && rect.right <= bar.right && rect.top >= bar.top && rect.bottom <= bar.bottom; }), `${format} controls stay inside the toolbar with options ${open ? "open" : "closed"}`);
       }
     }
+    const source = host.firstElementChild;
+    source.style.width = "232px";
+    await wait(() => ui().getElementById("size").textContent.startsWith("232 × "));
+    assert(ui().querySelector(".dimensions").textContent.endsWith("px"), "Open SVG dimensions follow a resized selection and include pixel units");
+    const rowTop = id => ui().getElementById(id).getBoundingClientRect().top;
+    assert(rowTop("prev") < rowTop("copy") && Math.abs(rowTop("copy") - rowTop("close")) < 1, "Narrow layout keeps copy, download and close on the second row");
     return checks;
   } finally {
     picker.close();
