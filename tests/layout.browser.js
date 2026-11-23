@@ -32,6 +32,31 @@
         assert(visible.every(button => { const rect = button.getBoundingClientRect(); return rect.left >= bar.left && rect.right <= bar.right && rect.top >= bar.top && rect.bottom <= bar.bottom; }), `${format} controls stay inside the toolbar with options ${open ? "open" : "closed"}`);
       }
     }
+    // The SVG options are open, so every tooltip can be reached.
+    const tip = ui().getElementById("tip");
+    const text = ui().getElementById("tip-text");
+    // It keeps 8px from the window edges, give or take a rounded width.
+    const inside = box => box.left >= 6.5 && box.right <= innerWidth - 6.5;
+    const hover = async button => {
+      button.dispatchEvent(new PointerEvent("pointerover", { bubbles: true, composed: true }));
+      await wait(() => tip.hasAttribute("data-on") && text.textContent === button.dataset.tip);
+      const box = tip.getBoundingClientRect();
+      const lines = text.getBoundingClientRect().height / parseFloat(getComputedStyle(text).lineHeight);
+      button.dispatchEvent(new PointerEvent("pointerout", { bubbles: true, composed: true }));
+      return { box, lines };
+    };
+    for (const button of ui().querySelectorAll("#bar button[data-tip]")) {
+      if (!button.checkVisibility({visibilityProperty:true})) continue;
+      const { box } = await hover(button);
+      assert(inside(box), `"${button.dataset.tip}" tooltip stays inside a 280px window`);
+    }
+    // One longer than the window gives way, instead of running past its edge.
+    const download = ui().getElementById("download");
+    const { tip: wording } = download.dataset;
+    download.dataset.tip = "说明".repeat(60);
+    const { box, lines } = await hover(download);
+    assert(inside(box) && lines > 2, "A tooltip longer than the window wraps inside it");
+    download.dataset.tip = wording;
     const source = host.firstElementChild;
     source.style.width = "232px";
     await wait(() => ui().getElementById("size").textContent.startsWith("232 × "));

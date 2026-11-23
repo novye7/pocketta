@@ -226,6 +226,15 @@
     ui("scale").querySelector('[data-value="2"]').click();
     key("s");
     assert(!shown("scale") && shown("text"), "SVG offers text handling instead");
+    const tipped = [];
+    for (const button of ui("bar").querySelectorAll("button[data-tip]")) {
+      if (!button.checkVisibility({visibilityProperty:true})) continue;
+      button.dispatchEvent(new PointerEvent("pointerover", { bubbles: true, composed: true }));
+      await until(() => ui("tip").hasAttribute("data-on") && ui("tip-text").textContent === button.dataset.tip, `tooltip for ${button.textContent}`);
+      tipped.push(Math.round(ui("tip-text").getBoundingClientRect().height / parseFloat(getComputedStyle(ui("tip-text")).lineHeight)));
+      button.dispatchEvent(new PointerEvent("pointerout", { bubbles: true, composed: true }));
+    }
+    assert(tipped.length >= 8 && tipped.every(lines => lines === 1), "Hovering a control explains it on one line");
     ui("text").querySelector('[data-value="outline"]').click();
     ui("download").click();
     await exported("download", 5);

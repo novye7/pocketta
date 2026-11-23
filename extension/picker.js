@@ -150,8 +150,10 @@
       .hints span { display:flex; justify-content:space-between; align-items:center; gap:4px; white-space:nowrap; }
       .hints .keys { font-style:normal; display:inline-flex; gap:2px; }
       kbd { display:inline-grid; place-items:center; min-width:18px; height:19px; padding:0 4px; border:1px solid var(--line); border-radius:5px; background:var(--thumb); color:var(--muted); font-family:inherit; font-size:11px; line-height:1; }
-      .tip { position:absolute; z-index:3; display:flex; align-items:center; gap:8px; max-width:240px; padding:5px 8px; border:1px solid var(--line); border-radius:9px; background:var(--popover); color:var(--fg); box-shadow:0 3px 12px rgba(0,0,0,.13); pointer-events:none; opacity:0; transition:opacity .12s ease; }
+      /* As wide as its text, so it stays on one line unless the window is narrower. Only the text gives way then, never the key. */
+      .tip { position:absolute; z-index:3; display:flex; align-items:center; gap:8px; width:max-content; max-width:calc(100vw - 16px); padding:5px 8px; border:1px solid var(--line); border-radius:9px; background:var(--popover); color:var(--fg); box-shadow:0 3px 12px rgba(0,0,0,.13); pointer-events:none; opacity:0; transition:opacity .12s ease; }
       .tip[data-on] { opacity:1; }
+      .tip kbd { flex:none; }
       .tip kbd:empty { display:none; }
 
       :host([data-leaving]) .frame,:host([data-leaving]) .ring,:host([data-leaving]) .bar { opacity:0!important; transition:opacity .14s ease!important; }
@@ -194,7 +196,7 @@
         <div class="options">
           <span class="opt" id="background-option"><span class="name">背景</span>${segment("surface", "背景", [["page", "页面底色"], ["transparent", "透明"]])}</span>
           <span class="opt" data-for="png"><span class="name">清晰度</span>${segment("scale", "清晰度", [["1", "1×"], ["2", "2×"], ["3", "3×"]])}</span>
-          <span class="opt" data-for="svg"><span class="name">文字</span>${segment("text", "文字", [["live", "可编辑", "文件小、可编辑；其他软件可能替换字体。"], ["outline", "转为轮廓", "外观保持不变，文字不能再编辑。"]])}</span>
+          <span class="opt" data-for="svg"><span class="name">文字</span>${segment("text", "文字", [["live", "可编辑", "文件小、可编辑，但其他软件可能替换字体。"], ["outline", "转为轮廓", "外观保持不变，但文字不能再编辑。"]])}</span>
           <span class="dimensions"><output id="size" aria-label="导出尺寸，单位像素"></output><span class="unit" aria-hidden="true">px</span></span>
         </div>
       </div></div></div>
