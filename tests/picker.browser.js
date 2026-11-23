@@ -290,6 +290,24 @@
     await until(selected("fx-a"), "selection follows the replacement after the boundary animation");
     assert($("fx-a") !== stale && selected("fx-a")(), "The selection survives ChatGPT re-rendering the component");
 
+    // Leave a few pixels of the card in view, then scroll just beyond it.
+    host.style.top = "100px"; // The scroller clips the card before it leaves the browser window.
+    const originalScroll = scroller.scrollTop;
+    const bottom = $("fx-a").getBoundingClientRect().bottom - scroller.getBoundingClientRect().top;
+    scroller.scrollTop += Math.floor(bottom) - 8;
+    await wait(120);
+    assert(!ui("bar").hasAttribute("data-idle"), "A partially visible selection keeps its controls");
+    scroller.scrollTop += 24;
+    await until(() => ui("bar").hasAttribute("data-idle"), "mounted card leaves the viewport");
+    assert($("fx-a")?.getBoundingClientRect().bottom > 0 && ui("lead").textContent.includes("不在这一屏") && !ui("frame").hasAttribute("data-on"), "Mounted offscreen cards show the offscreen message");
+    scroller.scrollTop = 9000;
+    await until(() => !$("fx-a"), "selected turn unmounts");
+    assert(ui("lead").textContent.includes("不在这一屏"), "Virtualization preserves the offscreen state");
+    host.style.top = "0";
+    scroller.scrollTop = originalScroll;
+    await until(selected("fx-a"), "remounted card returns to view");
+    assert(!ui("bar").hasAttribute("data-idle") && ui("download").offsetWidth > 0, "Returning to the selected card restores export controls");
+
     // ---- leaving --------------------------------------------------------------
     const composer = document.createElement("textarea");
     host.append(composer);

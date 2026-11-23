@@ -105,8 +105,9 @@
       .primary { padding:0 12px 0 10px; background:var(--ink); color:var(--ink-fg); font-weight:600; }
       .primary:hover { background:var(--ink); opacity:.86; }
       .sep { flex:none; align-self:center; width:1px; height:16px; margin:0 4px; background:var(--line); }
-      .lead { display:none; padding:0 8px 0 6px; color:var(--muted); white-space:nowrap; }
-      .bar[data-idle] .lead { display:block; }
+      .lead { display:none; align-items:center; gap:7px; min-width:0; }
+      .bar[data-idle] .lead { display:inline-flex; margin:0; padding:6px 10px; }
+      .lead svg { width:15px; height:15px; color:var(--muted); }
       .bar[data-idle] .t { display:none!important; }
 
       .seg { position:relative; display:flex; flex:none; padding:2px; border-radius:10px; background:var(--inset); }
@@ -123,7 +124,7 @@
       .fold > div { min-height:0; overflow:hidden; }
       .fold:not([data-open]) > div { visibility:hidden; transition:visibility 0s .26s; }
       .panel, .feedback { margin:4px 0 0; }
-      .bar[data-grow="up"] :is(.panel,.feedback) { margin:0 0 4px; }
+      .bar[data-grow="up"] .fold :is(.panel,.feedback) { margin:0 0 4px; }
       .options { display:flex; flex-wrap:wrap; align-items:center; gap:6px 14px; min-height:32px; color:var(--muted); font-size:12px; }
       .options .sep { margin:0 -4px; }
       .opt { display:inline-flex; align-items:center; gap:6px; min-width:0; }
@@ -163,7 +164,7 @@
       <div class="row">
         <button id="prev" class="icon" aria-label="上一个组件" data-tip="上一个组件" data-key="↑">${icons.up}</button>
         <button id="next" class="icon" aria-label="下一个组件" data-tip="下一个组件" data-key="↓">${icons.down}</button>
-        <span class="lead" id="lead"></span>
+        <span class="lead feedback">${icons.info}<span id="lead" role="status"></span></span>
         <i class="sep t"></i>
         ${segment("format", "导出格式", [["png", "PNG", "PNG 图片", "P"], ["svg", "SVG", "SVG 矢量图", "S"]], " t")}
         <button id="more" class="icon t" aria-label="导出选项" aria-expanded="false" data-tip="选项">${icons.options}</button>
@@ -759,6 +760,16 @@
 
     // ---- drawing ------------------------------------------------------------
 
+    // IntersectionObserver accounts for the viewport and clipping by nested
+    // scroll containers, even when ChatGPT keeps a distant turn mounted.
+    let observed = null;
+    let intersects = false;
+    const visibility = new IntersectionObserver(entries => {
+      for (const entry of entries) {
+        if (entry.target === observed) intersects = entry.isIntersecting;
+      }
+    });
+
     function draw(now) {
       if (closed) return;
       // Removed from outside, for example by a newer copy of this script.
@@ -768,7 +779,14 @@
       const height = innerHeight;
       const node = current();
       const rect = node?.getBoundingClientRect();
-      if (rect?.width) {
+      if (node !== observed) {
+        visibility.disconnect();
+        observed = node;
+        // Use viewport geometry until the first clipping observation arrives.
+        intersects = true;
+        if (node) visibility.observe(node);
+      }
+      if (intersects && rect?.width && rect.height && rect.bottom > 0 && rect.top < height && rect.right > 0 && rect.left < width) {
         const goal = { x: rect.left - GAP, y: rect.top - GAP, w: rect.width + GAP * 2, h: rect.height + GAP * 2 };
         if (glide && !glide.start) {
           // Travels from where the frame was; a first frame settles in from slightly larger.
@@ -1014,6 +1032,7 @@
       clearTimeout(tipTimer);
       clearTimeout(tipColdTimer);
       for (const timer of stateTimers.values()) clearTimeout(timer);
+      visibility.disconnect();
       themeObserver.disconnect();
       // Hands the keyboard back to wherever it was, unless the page has moved focus since.
       if ((document.activeElement === host || document.activeElement === document.body) && previousFocus?.isConnected) previousFocus.focus({ preventScroll: true });
