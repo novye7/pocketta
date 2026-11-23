@@ -51,6 +51,8 @@
     copy: svg('<rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M15 5.5A1.5 1.5 0 0 0 13.5 4H5.5A1.5 1.5 0 0 0 4 5.5v8A1.5 1.5 0 0 0 5.5 15"/>'),
     download: svg('<path d="M12 4v11m-4.5-4.5L12 15l4.5-4.5M5 19.5h14"/>'),
     close: svg('<path d="m7 7 10 10M17 7 7 17"/>'),
+    info: svg('<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5m0-9v.2"/>'),
+    warning: svg('<path d="m10.3 4.8-7.1 12.4A1.8 1.8 0 0 0 4.8 20h14.4a1.8 1.8 0 0 0 1.6-2.8L13.7 4.8a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4m0 3v.2"/>'),
     check: svg('<path d="m5 12.5 4.5 4.5L19 7.5"/>'),
     spinner: svg('<path d="M12 3.5a8.5 8.5 0 1 1-8.5 8.5"/>', ' class="spin"')
   };
@@ -120,25 +122,29 @@
       .fold[data-open] { grid-template-rows:1fr; }
       .fold > div { min-height:0; overflow:hidden; }
       .fold:not([data-open]) > div { visibility:hidden; transition:visibility 0s .26s; }
-      /* Every extra row uses the same gap, type size and height, whichever side it opens on. */
-      .panel, .message, .hints { margin-top:4px; }
-      .bar[data-grow="up"] .panel, .bar[data-grow="up"] .message, .bar[data-grow="up"] .hints { margin-top:0; margin-bottom:4px; }
-      .options, .message, .hints { display:flex; flex-wrap:wrap; align-items:center; gap:6px 12px; min-height:32px; color:var(--muted); font-size:12px; line-height:1.4; }
-      .options { gap:6px 14px; }
+      .panel, .feedback { margin:4px 0 0; }
+      .bar[data-grow="up"] :is(.panel,.feedback) { margin:0 0 4px; }
+      .options { display:flex; flex-wrap:wrap; align-items:center; gap:6px 14px; min-height:32px; color:var(--muted); font-size:12px; }
       .options .sep { margin:0 -4px; }
       .opt { display:inline-flex; align-items:center; gap:6px; min-width:0; }
       .name { color:var(--muted); font-size:12px; font-weight:500; }
       #size { color:var(--muted); font-size:12px; font-variant-numeric:tabular-nums; }
-      .hints span { display:inline-flex; align-items:center; gap:3px; white-space:nowrap; }
-      kbd { min-width:18px; padding:2px 4px; border-radius:5px; background:var(--inset); color:var(--fg); font:inherit; font-size:10.5px; text-align:center; }
-      .message { justify-content:space-between; width:100%; white-space:normal; }
-      #notice[data-kind="error"] .message { color:var(--danger); }
-      .message button { height:26px; min-width:0; padding:0 10px; border-radius:8px; background:var(--inset); color:var(--fg); }
-
-      .tip { position:absolute; z-index:3; display:flex; align-items:center; gap:6px; max-width:240px; padding:6px 8px; border-radius:8px; background:var(--ink); color:var(--ink-fg);
-        font-size:11px; font-weight:500; letter-spacing:0; line-height:1.35; pointer-events:none; opacity:0; transition:opacity .12s ease; }
+      .feedback, .tip { font-size:12px; line-height:1.45; font-weight:500; }
+      .feedback { border-radius:11px; background:color-mix(in srgb,var(--fg) 4%,transparent); padding:8px 10px; }
+      .message { display:flex; gap:7px; align-items:center; }
+      .message svg { width:15px; height:15px; color:var(--muted); }
+      .message .warning, #notice[data-kind="error"] .info { display:none; }
+      #notice[data-kind="error"] .warning { display:flex; color:var(--danger); }
+      #notice[data-kind="error"] .feedback { background:color-mix(in srgb,var(--danger) 7%,transparent); }
+      #notice-text { flex:1; min-width:0; overflow-wrap:anywhere; }
+      .message button { min-width:0; height:24px; padding:0 8px; border-radius:6px; background:var(--thumb); box-shadow:inset 0 0 0 1px var(--line); }
+      .message button:hover { background:var(--hover); }
+      .hints { display:grid; grid-template-columns:repeat(auto-fit,minmax(108px,1fr)); gap:6px 14px; }
+      .hints span { display:flex; justify-content:space-between; align-items:center; gap:4px; white-space:nowrap; }
+      .hints .keys { font-style:normal; display:inline-flex; gap:2px; }
+      kbd { display:inline-grid; place-items:center; min-width:18px; height:19px; padding:0 4px; border:1px solid var(--line); border-radius:5px; background:var(--thumb); color:var(--muted); font-family:inherit; font-size:11px; line-height:1; }
+      .tip { position:absolute; z-index:3; display:flex; align-items:center; gap:8px; max-width:240px; padding:5px 8px; border:1px solid var(--line); border-radius:9px; background:var(--thumb); color:var(--fg); box-shadow:0 3px 12px rgba(0,0,0,.13); pointer-events:none; opacity:0; transition:opacity .12s ease; }
       .tip[data-on] { opacity:1; }
-      .tip kbd { min-width:16px; padding:1px 4px; border-radius:4px; background:color-mix(in srgb, var(--ink-fg) 16%, transparent); color:inherit; }
       .tip kbd:empty { display:none; }
 
       :host([data-leaving]) .frame,:host([data-leaving]) .ring,:host([data-leaving]) .bar { opacity:0!important; transition:opacity .14s ease!important; }
@@ -175,9 +181,9 @@
           <i class="sep"></i><output id="size"></output>
         </div>
       </div></div></div>
-      <div class="fold" id="notice" role="status"><div><p class="message"><span id="notice-text"></span><button id="notice-action" hidden></button></p></div></div>
-      <div class="fold" id="hints"><div><div class="hints">
-        <span><kbd>↑</kbd><kbd>↓</kbd>切换组件</span><span><kbd>←</kbd><kbd>→</kbd>调整范围</span><span><kbd>↵</kbd>下载</span><span><kbd>${mac ? "⌘" : "Ctrl+"}C</kbd>复制</span><span><kbd>Esc</kbd>退出</span><span><kbd>?</kbd>快捷键</span>
+      <div class="fold" id="notice"><div><div class="feedback message"><i class="info glyph">${icons.info}</i><i class="warning glyph">${icons.warning}</i><span id="notice-text"></span><button id="notice-action" hidden></button></div></div></div>
+      <div class="fold" id="hints"><div><div class="feedback hints">
+        <span>切换组件<i class="keys"><kbd>↑</kbd><kbd>↓</kbd></i></span><span>调整范围<i class="keys"><kbd>←</kbd><kbd>→</kbd></i></span><span>下载<kbd>↵</kbd></span><span>复制<kbd>${mac ? "⌘" : "Ctrl+"}C</kbd></span><span>退出<kbd>Esc</kbd></span><span>快捷键<kbd>?</kbd></span>
       </div></div></div>
       <div class="tip" id="tip" hidden aria-hidden="true"><span id="tip-text"></span><kbd id="tip-key"></kbd></div>
     </div>
@@ -534,7 +540,7 @@
     function edge(direction) {
       if (current()) {
         replay(frame, "data-bump", String(direction));
-        notice(direction > 0 ? "已经是最后一个组件了" : direction < 0 ? "已经是第一个组件了" : "没有更小或更大的范围了", { timeout: 1800 });
+        notice(direction > 0 ? "已到最后一个组件" : direction < 0 ? "已到第一个组件" : "没有更小或更大的范围了", { timeout: 1800 });
       } else {
         notice(direction > 0 ? "下文没有可导出的组件" : "上文没有可导出的组件", { timeout: 2400 });
       }
