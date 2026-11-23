@@ -1,6 +1,6 @@
 (() => {
   "use strict";
-  const VERSION = "0.9.0";
+  const VERSION = "0.1.0";
   if (globalThis.__chatgptUIExportComponents?.version === VERSION) return;
 
   // ChatGPT renders an intelligent UI response as one tree of typed nodes

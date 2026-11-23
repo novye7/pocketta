@@ -1,6 +1,6 @@
 (() => {
   "use strict";
-  const VERSION = "0.9.0";
+  const VERSION = "0.1.0";
   if (globalThis.__chatgptUIExportRenderer?.version === VERSION) return;
 
   /**

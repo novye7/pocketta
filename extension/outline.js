@@ -1,6 +1,6 @@
 (() => {
   "use strict";
-  const VERSION = "0.9.0";
+  const VERSION = "0.1.0";
   if (globalThis.__chatgptUIExportOutline?.version === VERSION) return;
 
   // Turns text into vector outlines without access to font files: each glyph is

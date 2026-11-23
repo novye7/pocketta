@@ -3,7 +3,7 @@
 const HOVER = ["components.js", "hover.js"];
 const PICKER = ["color.js", "capture.js", "outline.js", "native-svg.js", "raster.js", "exporter.js", "picker.js"];
 const SITE = "https://chatgpt.com/*";
-const TITLE = "ChatGPT UI 导出";
+const TITLE = "Pocketta";
 
 async function start(tab) {
   try {

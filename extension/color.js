@@ -1,6 +1,6 @@
 (() => {
   "use strict";
-  const VERSION = "0.9.0";
+  const VERSION = "0.1.0";
   if (globalThis.__chatgptUIExportColor?.version === VERSION) return;
 
   // The page surface, used when nothing behind the component paints a colour.

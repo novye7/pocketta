@@ -1,12 +1,12 @@
 (() => {
   "use strict";
-  const VERSION = "0.9.0";
+  const VERSION = "0.1.0";
   if (location.origin !== "https://chatgpt.com") return;
   const existing = globalThis.__chatgptUIExportHover;
   if (existing?.version === VERSION) return;
   existing?.dispose?.();
   // A copy orphaned by an extension reload may live out of reach; its element is not.
-  document.getElementById("chatgpt-ui-exporter-hover")?.remove();
+  document.getElementById("pocketta-hover")?.remove();
   const Components = globalThis.__chatgptUIExportComponents;
   if (!Components) return;
 
@@ -22,7 +22,7 @@
   const lifetime = new AbortController();
   const { signal } = lifetime;
   const host = document.createElement("div");
-  host.id = "chatgpt-ui-exporter-hover";
+  host.id = "pocketta-hover";
   host.style.cssText = "all:initial!important;position:fixed!important;inset:0!important;pointer-events:none!important;z-index:2147483646!important;";
   const shadow = host.attachShadow({ mode: "open" });
   shadow.innerHTML = `

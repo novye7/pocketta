@@ -1,4 +1,4 @@
-# ChatGPT UI 导出
+# Pocketta
 
 一个无构建依赖的 Chrome / ego-lite Manifest V3 扩展，选取 ChatGPT 回复中的智能 UI 组件，在本地导出 SVG 或 PNG。
 

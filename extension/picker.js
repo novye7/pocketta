@@ -1,6 +1,6 @@
 (() => {
   "use strict";
-  const VERSION = "0.9.0";
+  const VERSION = "0.1.0";
   if (location.origin !== "https://chatgpt.com") return;
   // Set by the hover button: the component to start with.
   const pending = globalThis.__chatgptUIExportTarget;
@@ -14,7 +14,7 @@
   }
   loaded?.close?.();
   // A copy left behind by an earlier version of the extension notices this and stops.
-  document.getElementById("chatgpt-ui-exporter")?.remove();
+  document.getElementById("pocketta")?.remove();
 
   const Components = globalThis.__chatgptUIExportComponents;
   const Color = globalThis.__chatgptUIExportColor;
@@ -189,7 +189,7 @@
     const lifetime = new AbortController();
     const { signal } = lifetime;
     const host = document.createElement("div");
-    host.id = "chatgpt-ui-exporter";
+    host.id = "pocketta";
     host.style.cssText = "all:initial!important;position:fixed!important;inset:0!important;pointer-events:none!important;z-index:2147483647!important;";
     const shadow = host.attachShadow({ mode: "open" });
     shadow.innerHTML = TEMPLATE;
