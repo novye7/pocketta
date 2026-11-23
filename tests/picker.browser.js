@@ -106,8 +106,8 @@
     document.body.dispatchEvent(event);
     return event.defaultPrevented;
   };
-  const ui = id => [...document.querySelectorAll("#chatgpt-ui-exporter")].at(-1)?.shadowRoot.getElementById(id);
-  const chip = () => document.getElementById("chatgpt-ui-exporter-hover")?.shadowRoot.querySelector("button");
+  const ui = id => [...document.querySelectorAll("#pocketta")].at(-1)?.shadowRoot.getElementById(id);
+  const chip = () => document.getElementById("pocketta-hover")?.shadowRoot.querySelector("button");
   const around = (element, node, gap) => {
     if (!element?.hasAttribute("data-on") || !node?.isConnected) return false;
     const a = element.getBoundingClientRect();
@@ -148,7 +148,7 @@
     await until(() => chip().hasAttribute("data-on"), "export button returns");
     chip().click();
     await until(selected("fx-a"), "picker opens on the hovered component");
-    assert(picker.active && !chip().hasAttribute("data-on") && document.activeElement?.id === "chatgpt-ui-exporter", "The button opens the picker on that component and gets out of the way");
+    assert(picker.active && !chip().hasAttribute("data-on") && document.activeElement?.id === "pocketta", "The button opens the picker on that component and gets out of the way");
     const bar = ui("bar").getBoundingClientRect();
     assert(bar.top >= 0 && bar.left >= 0 && bar.right <= innerWidth && bar.bottom <= $("fx-a").getBoundingClientRect().top, "The bar sits above the selection, inside the window");
     assert(getComputedStyle(ui("frame")).boxShadow.match(/[\d.]+px/g).every(length => Number.parseFloat(length) <= 6), "The selection is outlined without dimming the rest of the page");
@@ -294,12 +294,12 @@
     const composer = document.createElement("textarea");
     host.append(composer);
     assert(key("Escape") && !picker.active, "Esc closes the picker");
-    await until(() => !document.getElementById("chatgpt-ui-exporter"), "picker is removed");
+    await until(() => !document.getElementById("pocketta"), "picker is removed");
     composer.focus();
     picker.toggle();
     // At the 1280 × 900 test viewport the table straddles the window midpoint.
     await until(selected("fx-b"), "the shortcut opens on the nearest component");
-    assert(document.activeElement?.id === "chatgpt-ui-exporter", "The shortcut opens on the component nearest the middle of the window");
+    assert(document.activeElement?.id === "pocketta", "The shortcut opens on the component nearest the middle of the window");
     picker.toggle();
     assert(!picker.active && document.activeElement === composer, "The shortcut closes it again and focus returns to where it was");
     await wait(250);

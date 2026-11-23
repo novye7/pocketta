@@ -13,7 +13,7 @@
       await new Promise(requestAnimationFrame);
     }
   };
-  const ui = () => [...document.querySelectorAll("#chatgpt-ui-exporter")].at(-1).shadowRoot;
+  const ui = () => [...document.querySelectorAll("#pocketta")].at(-1).shadowRoot;
   const assert = (value, message) => { if (!value) throw new Error(`Failed: ${message}`); checks.push(message); };
   try {
     picker.open(host.firstElementChild);

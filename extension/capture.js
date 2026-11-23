@@ -74,8 +74,7 @@
   /**
    * Clones the component and embeds its assets. The live DOM is measured and the
    * page is never mutated. Without `scene` the clone is fully styled for the PNG
-   * renderer. With `scene: true` the measured scene feeds the SVG renderer, and
-   * the clone is styled only where that renderer reads it: inline icons.
+   * renderer. With `scene: true` the SVG renderer reads the live scene and embedded assets.
    */
   async function build(source, { signal, scene: wantScene = true } = {}) {
     assertActive(signal);
@@ -105,7 +104,7 @@
     // Only the SVG renderer reads the scene, so its limits must not stop a PNG.
     const scene = wantScene ? await buildScene({ source, clone, pace, origin: rect, width, height }) : null;
     assertActive(signal);
-    const rules = await exportStyles({ originals, copies, styleAt, inlineAsset, rootChrome, width: rect.width, height: rect.height, pace, vector: wantScene });
+    const rules = wantScene ? "" : await exportStyles({ copies, styleAt, inlineAsset, rootChrome, width: rect.width, height: rect.height, pace });
     return { scene, clone, rules, width, height, ambient: Color.ambientBackground(source) };
   }
 
@@ -342,6 +341,7 @@
       kind: "element", tag: source.localName, node: source, copy: clone, clip: false,
       rect: { x: 0, y: 0, width: origin.width, height: origin.height }, style: rootStyle, children: []
     };
+    if (source instanceof HTMLImageElement) root.media = "image";
     root.clip = [rootStyle["overflow-x"], rootStyle["overflow-y"]].some(value => ["hidden", "clip", "scroll", "auto"].includes(value));
     scenePseudo("::before", source, clone, root.children);
     await walk(source, clone, root);
@@ -372,7 +372,7 @@
 
   // Freezes the clone's resolved styles and returns the style sheet that goes
   // with it into the PNG.
-  async function exportStyles({ originals, copies, styleAt, inlineAsset, rootChrome, width, height, pace, vector }) {
+  async function exportStyles({ copies, styleAt, inlineAsset, rootChrome, width, height, pace }) {
     const names = properties();
     // Local SVG fragment references are preserved; other assets are embedded.
     const embed = async value => {
@@ -399,10 +399,7 @@
     const pseudoRules = [];
     for (let index = 0; index < copies.length; index++) {
       if (pace.due()) await pace.rest();
-      // The SVG renderer measures the page itself and reads resolved styles only from inline icons.
-      if (vector && !(originals[index] instanceof SVGElement)) continue;
       styles[index] = await declarationsOf(styleAt(index));
-      if (vector) continue;
       for (const pseudo of ["::before", "::after"]) {
         const pseudoStyle = styleAt(index, pseudo);
         if (["none", "normal"].includes(pseudoStyle.content)) continue;
@@ -412,10 +409,6 @@
     }
     const root = copies[0];
     root.remove();
-    if (vector) {
-      copies.forEach((copy, index) => { if (styles[index]) copy.setAttribute("style", styles[index].shared + styles[index].own); });
-      return "";
-    }
     // Table cells, list rows and the like resolve to the same style many times
     // over. Writing each distinct style once leaves the browser a fraction of
     // the markup to parse that it had with every style inline.

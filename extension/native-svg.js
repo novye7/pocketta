@@ -322,13 +322,6 @@
         if (!characters[index].trim()) return;
         const glyph = Outline.glyph(style, characters[index]);
         if (glyph.empty) return;
-        if (glyph.image) {
-          create("image", {
-            x: number(run.x + glyph.x), y: number(baseline + glyph.y), width: glyph.width, height: glyph.height,
-            href: glyph.image, "xlink:href": glyph.image
-          }, group);
-          return;
-        }
         if (!glyphIds.has(glyph)) {
           glyphIds.set(glyph, nextId("ui-glyph"));
           create("path", { id: glyphIds.get(glyph), d: glyph.d }, defs);
@@ -378,61 +371,18 @@
       }
     }
 
-    // ---- inline SVG icons ----
-    const PRESENTATION = ["fill", "fill-opacity", "fill-rule", "stroke", "stroke-width", "stroke-opacity", "stroke-linecap", "stroke-linejoin", "stroke-miterlimit", "stroke-dasharray", "stroke-dashoffset", "opacity", "clip-rule", "color"];
-    function icon(record, parent) {
-      const copy = record.copy;
-      const box = record.rect;
-      const view = (record.node.getAttribute("viewBox") || `0 0 ${box.width} ${box.height}`).trim().split(/[ ,]+/).map(Number);
-      const scale = Math.min(box.width / view[2], box.height / view[3]);
-      const x = box.x + (box.width - view[2] * scale) / 2 - view[0] * scale;
-      const y = box.y + (box.height - view[3] * scale) / 2 - view[1] * scale;
-      const group = create("g", { transform: `translate(${number(x)} ${number(y)}) scale(${number(scale)})` }, parent);
-      const targets = new Map([...copy.querySelectorAll("[id]")].map(node => [node.id, node]));
-      const value = (node, key, inherited) => {
-        const css = node.style?.getPropertyValue(key);
-        let resolved = css || node.getAttribute(key);
-        if (resolved && (resolved === "currentcolor" || resolved === "currentColor")) resolved = inherited;
-        return resolved;
-      };
-      const draw = (node, destination, inheritedColor, chain = []) => {
-        if (node.nodeType !== Node.ELEMENT_NODE || ["defs", "title", "desc", "style"].includes(node.localName)) return;
-        if (["foreignObject", "filter", "mask", "image", "text"].includes(node.localName)) throw new Error("SVG 图标包含暂不支持的内容，请使用 PNG。");
-        const current = value(node, "color", inheritedColor) || inheritedColor;
-        if (node.localName === "use") {
-          const href = node.getAttribute("href") || node.getAttributeNS(XLINK, "href");
-          if (!href?.startsWith("#") || chain.includes(href) || chain.length > 8) throw new Error("SVG 图标引用无效。");
-          const target = targets.get(href.slice(1));
-          if (!target) throw new Error("SVG 图标定义缺失。");
-          const useGroup = create("g", {}, destination);
-          for (const key of PRESENTATION) {
-            const resolved = value(node, key, current);
-            if (resolved) useGroup.setAttribute(key, String(resolved));
-          }
-          if (target.localName === "symbol") for (const child of target.children) draw(child, useGroup, current, [...chain, href]);
-          else draw(target, useGroup, current, [...chain, href]);
-          return;
-        }
-        if (!["svg", "g", "symbol", "path", "rect", "circle", "ellipse", "line", "polyline", "polygon"].includes(node.localName)) {
-          throw new Error("SVG 图标形状暂不支持。");
-        }
-        const shapes = ["svg", "symbol"].includes(node.localName) ? "g" : node.localName;
-        const out = create(shapes, {}, destination);
-        for (const key of ["d", "x", "y", "width", "height", "rx", "ry", "cx", "cy", "r", "x1", "x2", "y1", "y2", "points", "transform"]) {
-          const raw = node.getAttribute(key);
-          if (raw !== null) out.setAttribute(key, raw);
-        }
-        for (const key of PRESENTATION) {
-          const resolved = value(node, key, current);
-          if (resolved) out.setAttribute(key, String(resolved));
-        }
-        for (const child of node.children) draw(child, out, current, chain);
-      };
-      for (const key of PRESENTATION) {
-        const resolved = value(copy, key, record.style.color);
-        if (resolved) group.setAttribute(key, String(resolved));
-      }
-      for (const child of copy.children) draw(child, group, record.style.color);
+    function vector(record) {
+      const importer = globalThis.__pockettaVectorSource;
+      const image = record.media === "image";
+      const source = image ? importer.fromImage(record.copy.getAttribute("src")) : record.node;
+      const svg = importer.read(image ? null : source, image ? source : record.copy, nextId);
+      const { x, y, width, height } = record.rect;
+      svg.setAttribute("width", width);
+      svg.setAttribute("height", height);
+      if (outline) importer.outline(svg);
+      svg.setAttribute("x", x);
+      svg.setAttribute("y", y);
+      return svg;
     }
 
     function control(record, parent) {
@@ -456,7 +406,7 @@
       switch (record.kind) {
         case "text": return textNode(record, parent);
         case "pseudo": return boxPaint(record.rect, record.style, parent);
-        case "icon": return icon(record, parent);
+        case "icon": return parent.append(vector(record));
         default: break;
       }
       const style = record.style;
@@ -464,13 +414,7 @@
       if (style.filter !== "none" || style["backdrop-filter"] !== "none" || style["mix-blend-mode"] !== "normal") throw new Error("SVG 暂不支持滤镜或混合效果，请使用 PNG。");
       const group = create("g", { opacity: Number(style.opacity) !== 1 ? style.opacity : undefined }, parent);
       if (record.media === "image") {
-        const href = record.copy.getAttribute("src");
-        const fit = style["object-fit"];
-        create("image", {
-          x: number(record.rect.x), y: number(record.rect.y), width: number(record.rect.width), height: number(record.rect.height),
-          href, "xlink:href": href,
-          preserveAspectRatio: fit === "contain" ? "xMidYMid meet" : fit === "cover" ? "xMidYMid slice" : "none"
-        }, group);
+        group.append(vector(record));
       } else if (record.media === "control") {
         control(record, group);
       } else {
@@ -495,7 +439,8 @@
     // are already measured in the transformed frame, so its transform is dropped.
     draw({ ...sceneRoot, style: { ...sceneRoot.style, transform: "none" } }, outer);
     check();
-    const xml = new XMLSerializer().serializeToString(root).replace(/[^\x00-\x7f]/gu, character => `&#x${character.codePointAt(0).toString(16)};`);
+    const output = sceneRoot.media === "image" ? outer.querySelector("svg") : root;
+    const xml = new XMLSerializer().serializeToString(output).replace(/[^\x00-\x7f]/gu, character => `&#x${character.codePointAt(0).toString(16)};`);
     return { svg: `<?xml version="1.0" encoding="UTF-8"?>\n${xml}`, width, height };
   }
 

@@ -169,7 +169,7 @@
       </div>
       <div class="fold t" id="drawer"><div><div class="panel">
         <div class="options">
-          <span class="opt"><span class="name">背景</span>${segment("surface", "背景", [["page", "页面底色"], ["transparent", "透明"]])}</span>
+          <span class="opt" id="background-option"><span class="name">背景</span>${segment("surface", "背景", [["page", "页面底色"], ["transparent", "透明"]])}</span>
           <span class="opt" data-for="png"><span class="name">清晰度</span>${segment("scale", "清晰度", [["1", "1×"], ["2", "2×"], ["3", "3×"]])}</span>
           <span class="opt" data-for="svg"><span class="name">文字</span>${segment("text", "文字", [["live", "可编辑", "文件小、可编辑；其他软件可能替换字体。"], ["outline", "转为轮廓", "外观保持不变，文字不能再编辑。"]])}</span>
           <i class="sep"></i><output id="size"></output>
@@ -404,6 +404,7 @@
 
     function sync() {
       for (const node of shadow.querySelectorAll("[data-for]")) node.hidden = node.dataset.for !== settings.format;
+      $("background-option").hidden = settings.format === "svg" && selected instanceof HTMLImageElement;
       syncSegment("format", settings.format);
       syncSegment("scale", settings.scale);
       syncSegment("text", settings.outlined ? "outline" : "live");

@@ -6,7 +6,7 @@
   // Turns text into vector outlines without access to font files: each glyph is
   // drawn large on a canvas with the page's own font, and the edge of its
   // coverage is followed to build a path. Colour glyphs (emoji) cannot be
-  // described by one outline, so they are returned as small images instead.
+  // described by one outline, so outlining reports them explicitly.
   const THRESHOLD = 127.5;
   const TARGET_EM = 160;
   const MAX_SCALE = 12;
@@ -112,8 +112,7 @@
 
   /**
    * Returns the outline of one grapheme in CSS pixels, relative to its origin
-   * on the baseline: { d } for a path, { image, x, y, width, height } for a
-   * colour glyph, or { empty: true } when nothing is painted.
+   * on the baseline. Colour glyphs cannot be outlined.
    */
   function glyph(style, text) {
     const size = Number.parseFloat(style["font-size"]) || 16;
@@ -129,7 +128,8 @@
     const width = left + Math.ceil(Math.max(0, measured.actualBoundingBoxRight) * scale) + PAD;
     const height = top + Math.ceil(Math.max(0, measured.actualBoundingBoxDescent) * scale) + PAD;
     let result = { empty: true };
-    if (width > PAD * 2 && height > PAD * 2 && width * height <= 16_000_000) {
+    if (width * height > 16_000_000) throw new Error("字形过大，请选择可编辑文字或 PNG。");
+    if (width > PAD * 2 && height > PAD * 2) {
       canvas.width = width;
       canvas.height = height;
       // Resizing resets the context state.
@@ -148,7 +148,7 @@
         if (data[index] + data[index + 1] + data[index + 2] > 60) { coloured = true; break; }
       }
       if (coloured) {
-        result = { image: canvas.toDataURL("image/png"), x: round(-left / scale), y: round(-top / scale), width: round(width / scale), height: round(height / scale) };
+        throw new Error("彩色字形无法转为纯矢量轮廓，请选择可编辑文字或 PNG。");
       } else if (ink) {
         // Samples sit at pixel centres, hence the half-pixel shift.
         const d = contours(data, width, height).map(loop => `M${simplify(loop)

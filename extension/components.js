@@ -17,7 +17,7 @@
     "p", "h1", "h2", "h3", "h4", "h5", "h6", "ul", "ol", "li", "blockquote", "hr", "pre", "code", "span", "a",
     "svg", "img", "tr", "td", "th", "thead", "tbody", "tfoot"
   ]);
-  const NAMES = { box: "卡片", card: "卡片", table: "表格", row: "行", grid: "网格", "grid-item": "网格项" };
+  const NAMES = { svg: "矢量图", chart: "图表", box: "卡片", card: "卡片", table: "表格", row: "行", grid: "网格", "grid-item": "网格项" };
   const MIN_WIDTH = 48;
   const MIN_HEIGHT = 24;
 
@@ -31,6 +31,7 @@
     if (node.localName === "table") {
       return !type && node.parentElement?.closest("[data-d-component]")?.getAttribute("data-d-component") === "table";
     }
+    if (node instanceof HTMLImageElement && type === "svg") return true;
     if (!type || PROSE_TYPES.has(type) || PROSE_TAGS.has(node.localName)) return false;
     if (node.hasAttribute("data-d-text-flow") || node.hasAttribute("data-d-inline")) return false;
     if (type === "table") return !node.querySelector("table");
@@ -43,6 +44,7 @@
   }
 
   function sameBox(a, b) {
+    if (a instanceof HTMLImageElement || b instanceof HTMLImageElement) return false;
     const first = a.getBoundingClientRect();
     const second = b.getBoundingClientRect();
     return Math.abs(first.left - second.left) < 2 && Math.abs(first.top - second.top) < 2 &&

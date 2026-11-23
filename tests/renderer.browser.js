@@ -171,6 +171,38 @@
       try { await render(fixture,{format:"png"}); throw new Error("Expected PNG size rejection"); }
       catch (error) { assert(error.message.includes("图片过大"), "PNG retains its canvas size protection"); }
     } finally { fixture.style.height = "160px"; }
+    const card = document.createElement("div");
+    card.dataset.dilMessageId = "vector-fixture";
+    card.innerHTML = '<section data-d-component="card" style="width:220px;background:white"><h3>趋势</h3><span>本周</span><svg width="220" height="60"><defs><linearGradient id="trend"><stop stop-color="red"/></linearGradient></defs><path fill="url(#trend)" d="M0 20h60v5H0Z"/><foreignObject x="12" y="28" width="50" height="22"><div>D3</div></foreignObject></svg></section>';
+    host.append(card);
+    const parse = async (element, text) => new DOMParser().parseFromString(
+      await (await render(element, { format:"svg", text })).blob.text(), "image/svg+xml");
+    const editable = await parse(card.firstChild, "live");
+    assert(["趋势","本周","D3"].every(label => [...editable.querySelectorAll("text")].some(t => t.textContent === label)), "Card title, badge and HTML axis label are editable");
+    assert(editable.querySelector("linearGradient") && !editable.querySelector("image,foreignObject,parsererror"), "Chart preserves native paint and paths");
+    const outlinedCard = await parse(card.firstChild, "outline");
+    assert(!outlinedCard.querySelector("text,tspan,image,foreignObject,parsererror"), "Outline mode covers card and chart labels");
+    const wrapper = document.createElement("div");
+    wrapper.dataset.dComponent = "box";
+    wrapper.style.width = "100px";
+    const image = new Image(100, 50);
+    image.style.display = "block";
+    image.dataset.dComponent = "svg";
+    image.src = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="10 20 80 40"><text x="15" y="40">A</text></svg>');
+    wrapper.append(image);
+    card.append(wrapper);
+    await image.decode();
+    const components = globalThis.__chatgptUIExportComponents;
+    assert(components.inner(wrapper).includes(image) && components.outer(image) === wrapper, "Source SVG is selectable independently of a same-size wrapper");
+    const standalone = await parse(image, "live");
+    assert(standalone.documentElement.getAttribute("viewBox") === "10 20 80 40" && !standalone.querySelector("rect,image") && standalone.querySelector("text"), "Standalone source preserves viewBox, transparency and live type");
+    assert(!(await parse(image, "outline")).querySelector("text,image"), "Standalone SVG text also outlines");
+    const bitmap = document.createElement("canvas");
+    image.src = bitmap.toDataURL();
+    await image.decode();
+    try { await parse(wrapper, "live"); throw new Error("Expected bitmap rejection"); }
+    catch (error) { assert(error.fallback === "png" && error.message.includes("位图"), "Photos explicitly reject pure SVG and offer PNG"); }
+    assert((await render(wrapper)).format === "png", "PNG remains available for bitmap cards");
     return checks;
   } finally {
     host.remove();
