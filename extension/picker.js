@@ -138,8 +138,8 @@
       #notice[data-kind="error"] .warning { display:flex; color:var(--danger); }
       #notice[data-kind="error"] .feedback { background:color-mix(in srgb,var(--danger) 7%,transparent); }
       #notice-text { flex:1; min-width:0; overflow-wrap:anywhere; }
-      .message button { min-width:0; height:24px; padding:0 8px; border-radius:6px; background:var(--thumb); box-shadow:inset 0 0 0 1px var(--line); }
-      .message button:hover { background:var(--hover); }
+      .feedback-action { height:26px; min-width:0; padding:0 5px; gap:4px; border-radius:6px; color:var(--fg); font-weight:600; }
+      .feedback-action::after { content:""; width:5px; height:5px; border-top:1.5px solid currentColor; border-right:1.5px solid currentColor; transform:rotate(45deg); }
       .hints { display:grid; grid-template-columns:repeat(auto-fit,minmax(108px,1fr)); gap:6px 14px; }
       .hints span { display:flex; justify-content:space-between; align-items:center; gap:4px; white-space:nowrap; }
       .hints .keys { font-style:normal; display:inline-flex; gap:2px; }
@@ -162,16 +162,15 @@
     <div class="ring" id="ring"></div>
     <div class="bar" id="bar" role="toolbar" aria-label="导出组件" tabindex="-1" data-grow="up">
       <div class="row">
-        <button id="prev" class="icon" aria-label="上一个组件" data-tip="上一个组件" data-key="↑">${icons.up}</button>
-        <button id="next" class="icon" aria-label="下一个组件" data-tip="下一个组件" data-key="↓">${icons.down}</button>
-        <span class="lead feedback">${icons.info}<span id="lead" role="status"></span></span>
-        <i class="sep t"></i>
+        <span class="lead feedback">${icons.info}<span id="lead" role="status"></span><button class="feedback-action" id="return-selection" hidden>返回组件</button></span>
         ${segment("format", "导出格式", [["png", "PNG", "PNG 图片", "P"], ["svg", "SVG", "SVG 矢量图", "S"]], " t")}
         <button id="more" class="icon t" aria-label="导出选项" aria-expanded="false" data-tip="选项">${icons.options}</button>
         <i class="sep t"></i>
         <button id="copy" class="t" data-tip="" data-key=""><span class="glyph">${icons.copy}</span><span class="label">复制</span></button>
         <button id="download" class="t primary" data-tip="下载文件" data-key="↵"><span class="glyph">${icons.download}</span><span class="label">下载</span></button>
         <i class="sep"></i>
+        <button id="prev" class="icon" aria-label="上一个组件" data-tip="上一个组件" data-key="↑">${icons.up}</button>
+        <button id="next" class="icon" aria-label="下一个组件" data-tip="下一个组件" data-key="↓">${icons.down}</button>
         <button id="close" class="icon" aria-label="退出导出" data-tip="退出" data-key="Esc">${icons.close}</button>
       </div>
       <div class="fold t" id="drawer"><div><div class="panel">
@@ -182,7 +181,7 @@
           <i class="sep"></i><output id="size"></output>
         </div>
       </div></div></div>
-      <div class="fold" id="notice"><div><div class="feedback message"><i class="info glyph">${icons.info}</i><i class="warning glyph">${icons.warning}</i><span id="notice-text"></span><button id="notice-action" hidden></button></div></div></div>
+      <div class="fold" id="notice"><div><div class="feedback message"><i class="info glyph">${icons.info}</i><i class="warning glyph">${icons.warning}</i><span id="notice-text"></span><button class="feedback-action" id="notice-action" hidden></button></div></div></div>
       <div class="fold" id="hints"><div><div class="feedback hints">
         <span>切换组件<i class="keys"><kbd>↑</kbd><kbd>↓</kbd></i></span><span>调整范围<i class="keys"><kbd>←</kbd><kbd>→</kbd></i></span><span>下载<kbd>↵</kbd></span><span>复制<kbd>${mac ? "⌘" : "Ctrl+"}C</kbd></span><span>退出<kbd>Esc</kbd></span><span>快捷键<kbd>?</kbd></span>
       </div></div></div>
@@ -208,6 +207,8 @@
     let closed = false;
     let selected = null;      // the component that will be exported
     let selectedKey = null;   // where it sits in its response, to find it again after a re-render
+    let bookmark = null;         // scroll position that can remount the selected turn
+    let returnDeadline = 0;      // while waiting for that turn to reappear
     let hovered = null;       // what a click would select
     let pointer = null;       // the last pointer position and the element under it
     let pointerDirty = false;
@@ -464,7 +465,8 @@
     }
 
     // The bar shows the export controls only while there is something to export.
-    function setIdle(text) {
+    function setIdle(text, canReturn = false) {
+      $("return-selection").hidden = !canReturn;
       if (text === null) return bar.removeAttribute("data-idle");
       if ($("lead").textContent !== text) $("lead").textContent = text;
       bar.setAttribute("data-idle", "");
@@ -490,6 +492,18 @@
       if (smooth) scroller.addEventListener("scrollend", () => { if (!closed && selected === node && node.isConnected) reveal(node, false); }, { once: true, signal });
     }
 
+    function returnToSelection() {
+      const node = current();
+      if (node) {
+        node.scrollIntoView({ block: "center", inline: "nearest", behavior: "instant" });
+        return;
+      }
+      if (!bookmark || !selectedKey) return;
+      const scroller = bookmark.scroller.isConnected ? bookmark.scroller : scrollerOf(column(performance.now())) || document.scrollingElement;
+      returnDeadline = performance.now() + 3000;
+      scroller.scrollTo({ top: bookmark.top, behavior: "instant" });
+    }
+
     function select(node, { show = true } = {}) {
       if (!node || closed) return;
       if (node !== selected) {
@@ -498,6 +512,10 @@
       }
       selected = node;
       selectedKey = Components.keyOf(node);
+      returnDeadline = 0;
+      const scroller = scrollerOf(node) || document.scrollingElement;
+      const viewTop = scroller === document.scrollingElement ? 0 : scroller.getBoundingClientRect().top;
+      bookmark = { scroller, top: scroller.scrollTop + node.getBoundingClientRect().top - viewTop - scroller.clientHeight / 3 };
       hovered = null;
       pointerDirty = true;
       frame.style.borderRadius = radiusOf(node);
@@ -562,6 +580,7 @@
     }
 
     function step(direction) {
+      returnDeadline = 0;
       if (seeking || closed) return;
       const node = current();
       if (node) {
@@ -778,6 +797,13 @@
       const width = innerWidth;
       const height = innerHeight;
       const node = current();
+      if (returnDeadline && node) {
+        returnDeadline = 0;
+        node.scrollIntoView({ block: "center", inline: "nearest", behavior: "instant" });
+      } else if (returnDeadline && now >= returnDeadline) {
+        returnDeadline = 0;
+        notice("暂未找到原组件，请重试。", { timeout: 2400 });
+      }
       const rect = node?.getBoundingClientRect();
       if (node !== observed) {
         visibility.disconnect();
@@ -814,7 +840,8 @@
         frame.removeAttribute("data-on");
       }
       if (seeking) setIdle("正在查找组件…");
-      else if (!box) setIdle(selectedKey ? "选中的组件不在这一屏" : "这附近没有可导出的组件");
+      else if (returnDeadline) setIdle("正在返回组件…");
+      else if (!box) setIdle(selectedKey ? "选中的组件不在这一屏" : "这附近没有可导出的组件", Boolean(selectedKey));
 
       if (pointerDirty) {
         pointerDirty = false;
@@ -896,7 +923,7 @@
       pointerDirty = true;
     }, { capture: true, passive: true, signal });
     for (const type of ["wheel", "touchmove"]) {
-      document.addEventListener(type, () => { if (seeking) stopSeek(); }, { capture: true, passive: true, signal });
+      document.addEventListener(type, () => { returnDeadline = 0; if (seeking) stopSeek(); }, { capture: true, passive: true, signal });
     }
 
     // A click on a component selects it instead of reaching the page; a press
@@ -1002,6 +1029,7 @@
         return save();
       }
       switch (button.id) {
+        case "return-selection": return returnToSelection();
         case "prev": return step(-1);
         case "next": return step(1);
         case "copy": return run("copy");

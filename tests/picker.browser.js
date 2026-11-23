@@ -300,13 +300,18 @@
     scroller.scrollTop += 24;
     await until(() => ui("bar").hasAttribute("data-idle"), "mounted card leaves the viewport");
     assert($("fx-a")?.getBoundingClientRect().bottom > 0 && ui("lead").textContent.includes("不在这一屏") && !ui("frame").hasAttribute("data-on"), "Mounted offscreen cards show the offscreen message");
+    assert(!ui("return-selection").hidden, "The offscreen notice offers a return action");
+    ui("return-selection").click();
+    await until(selected("fx-a"), "return button reveals a mounted card");
     scroller.scrollTop = 9000;
     await until(() => !$("fx-a"), "selected turn unmounts");
     assert(ui("lead").textContent.includes("不在这一屏"), "Virtualization preserves the offscreen state");
     host.style.top = "0";
-    scroller.scrollTop = originalScroll;
-    await until(selected("fx-a"), "remounted card returns to view");
+    ui("return-selection").click();
+    await until(selected("fx-a"), "return button remounts and reveals the original selection");
     assert(!ui("bar").hasAttribute("data-idle") && ui("download").offsetWidth > 0, "Returning to the selected card restores export controls");
+
+    scroller.scrollTop = originalScroll;
 
     // ---- leaving --------------------------------------------------------------
     const composer = document.createElement("textarea");
