@@ -162,15 +162,16 @@
     <div class="ring" id="ring"></div>
     <div class="bar" id="bar" role="toolbar" aria-label="导出组件" tabindex="-1" data-grow="up">
       <div class="row">
+        <button id="prev" class="icon" aria-label="上一个组件" data-tip="上一个组件" data-key="↑">${icons.up}</button>
+        <button id="next" class="icon" aria-label="下一个组件" data-tip="下一个组件" data-key="↓">${icons.down}</button>
         <span class="lead feedback">${icons.info}<span id="lead" role="status"></span><button class="feedback-action" id="return-selection" hidden>返回组件</button></span>
+        <i class="sep t"></i>
         ${segment("format", "导出格式", [["png", "PNG", "PNG 图片", "P"], ["svg", "SVG", "SVG 矢量图", "S"]], " t")}
         <button id="more" class="icon t" aria-label="导出选项" aria-expanded="false" data-tip="选项">${icons.options}</button>
         <i class="sep t"></i>
         <button id="copy" class="t" data-tip="" data-key=""><span class="glyph">${icons.copy}</span><span class="label">复制</span></button>
         <button id="download" class="t primary" data-tip="下载文件" data-key="↵"><span class="glyph">${icons.download}</span><span class="label">下载</span></button>
         <i class="sep"></i>
-        <button id="prev" class="icon" aria-label="上一个组件" data-tip="上一个组件" data-key="↑">${icons.up}</button>
-        <button id="next" class="icon" aria-label="下一个组件" data-tip="下一个组件" data-key="↓">${icons.down}</button>
         <button id="close" class="icon" aria-label="退出导出" data-tip="退出" data-key="Esc">${icons.close}</button>
       </div>
       <div class="fold t" id="drawer"><div><div class="panel">
@@ -417,7 +418,7 @@
       syncSegment("scale", settings.scale);
       syncSegment("text", settings.outlined ? "outline" : "live");
       syncSegment("surface", settings.transparent ? "transparent" : "page");
-      $("copy").dataset.tip = settings.format === "png" ? "复制图片" : "复制 SVG 代码";
+      $("copy").dataset.tip = settings.format === "png" ? "复制图片" : "复制 SVG 图片";
       $("copy").dataset.key = mac ? "⌘C" : "Ctrl+C";
       syncSize();
       if (tipTarget) showTip(tipTarget);
@@ -731,11 +732,21 @@
       setTimeout(() => URL.revokeObjectURL(url), 60_000);
     }
 
-    async function copy(result) {
+    async function copy(result, signal) {
+      const types = {};
+      if (result.format === "svg" && globalThis.ClipboardItem?.supports?.("image/svg+xml")) {
+        types["image/svg+xml"] = result.blob.slice(0, result.blob.size, "image/svg+xml");
+      }
+      types["image/png"] = result.format === "png" ? result.blob :
+        await globalThis.__chatgptUIExportRaster.preview(result, signal);
+      signal.throwIfAborted();
       try {
-        if (result.format === "svg") await navigator.clipboard.writeText(await result.blob.text());
-        else await navigator.clipboard.write([new ClipboardItem({ "image/png": result.blob })]);
-      } catch {
+        await navigator.clipboard.write([new ClipboardItem(types)]);
+      } catch (error) {
+        if (types["image/svg+xml"] && error.name === "DataError") {
+          await navigator.clipboard.write([new ClipboardItem({ "image/png": types["image/png"] })]);
+          return;
+        }
         throw new Error("无法写入剪贴板。请点击一下页面后重试，或改用下载。");
       }
     }
@@ -753,7 +764,7 @@
           text: settings.outlined ? "outline" : "live", signal: controller.signal
         });
         if (closed) return;
-        if (kind === "copy") await copy(result);
+        if (kind === "copy") await copy(result, controller.signal);
         else download(result, node);
         if (closed) return;
         replay(frame, "data-flash");

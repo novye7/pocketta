@@ -37,7 +37,7 @@
   globalThis.chrome = { ...(globalThis.chrome || {}), runtime: { ...(globalThis.chrome?.runtime || {}), id: "test", sendMessage: async () => true } };
   HTMLAnchorElement.prototype.click = function () { downloads.push({ name: this.download, href: this.href }); };
   if (navigator.clipboard) {
-    navigator.clipboard.write = async items => { clipboard.push({ types: items.flatMap(item => item.types) }); };
+    navigator.clipboard.write = async items => { clipboard.push({ types: items.flatMap(item => item.types), item: items[0] }); };
     navigator.clipboard.writeText = async text => { clipboard.push({ text }); };
   }
 
@@ -207,7 +207,13 @@
     assert(downloads[1].name === "卡片 A.svg" && svg.startsWith("<?xml") && svg.includes("<text"), "SVG downloads as a vector file with live text");
     key("c", { metaKey: true });
     await exported("copy", 3);
-    assert(clipboard[0].text?.startsWith("<?xml") && ui("copy").textContent.includes("已复制"), "Copying SVG puts its code on the clipboard");
+    const copiedImage = await createImageBitmap(await clipboard[0].item.getType("image/png"));
+    assert(copiedImage.width > 0 && copiedImage.height > 0 && !clipboard[0].types.includes("text/plain") && ui("copy").textContent.includes("已复制"), "SVG copies a decodable image without XML text");
+    copiedImage.close();
+    if (ClipboardItem.supports?.("image/svg+xml")) {
+      const copiedSvg = await clipboard[0].item.getType("image/svg+xml");
+      assert(copiedSvg.type === "image/svg+xml" && await copiedSvg.text() === svg, "The same clipboard item includes the original vector");
+    }
     key("p");
     key("c");
     await exported("copy", 4);

@@ -54,16 +54,29 @@
     wrapper.append(clone);
     const html = new XMLSerializer().serializeToString(wrapper);
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><foreignObject width="100%" height="100%">${html}</foreignObject></svg>`;
+    return rasterize(svg, width, height, scale, surface === "transparent" ? null : ambient, signal);
+  }
+
+  // Rasterize the exported vector itself so both clipboard representations
+  // preserve the same background, geometry and text mode.
+  async function preview(result, signal) {
+    const { width, height } = result;
+    const scale = Math.min(2, MAX_DIMENSION / width, MAX_DIMENSION / height, Math.sqrt(MAX_PIXELS / (width * height)));
+    const png = await rasterize(await result.blob.text(), width, height, scale, null, signal);
+    return png.blob;
+  }
+
+  async function rasterize(svg, width, height, scale, ambient, signal) {
     assertActive(signal);
     const image = await bounded(decode(svg), signal, 15_000, "渲染超时，请缩小选取范围后重试。");
     assertActive(signal);
     const canvas = document.createElement("canvas");
-    canvas.width = Math.round(width * scale);
-    canvas.height = Math.round(height * scale);
+    canvas.width = Math.max(1, Math.floor(width * scale));
+    canvas.height = Math.max(1, Math.floor(height * scale));
     const context = canvas.getContext("2d");
     if (!context) throw new Error("无法创建图片，请缩小选取范围。");
-    context.scale(scale, scale);
-    if (surface !== "transparent" && ambient) {
+    context.scale(canvas.width / width, canvas.height / height);
+    if (ambient) {
       context.fillStyle = ambient;
       context.fillRect(0, 0, width, height);
     }
@@ -80,5 +93,5 @@
     return { blob, width: canvas.width, height: canvas.height, format: "png" };
   }
 
-  globalThis.__chatgptUIExportRaster = Object.freeze({ version: VERSION, render, MAX_PIXELS, MAX_DIMENSION });
+  globalThis.__chatgptUIExportRaster = Object.freeze({ version: VERSION, render, preview, MAX_PIXELS, MAX_DIMENSION });
 })();
