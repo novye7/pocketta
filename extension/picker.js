@@ -418,7 +418,7 @@
       syncSegment("scale", settings.scale);
       syncSegment("text", settings.outlined ? "outline" : "live");
       syncSegment("surface", settings.transparent ? "transparent" : "page");
-      $("copy").dataset.tip = settings.format === "png" ? "复制图片" : "复制 SVG 图片";
+      $("copy").dataset.tip = settings.format === "png" ? "复制图片" : "复制 SVG 代码";
       $("copy").dataset.key = mac ? "⌘C" : "Ctrl+C";
       syncSize();
       if (tipTarget) showTip(tipTarget);
@@ -732,21 +732,11 @@
       setTimeout(() => URL.revokeObjectURL(url), 60_000);
     }
 
-    async function copy(result, signal) {
-      const types = {};
-      if (result.format === "svg" && globalThis.ClipboardItem?.supports?.("image/svg+xml")) {
-        types["image/svg+xml"] = result.blob.slice(0, result.blob.size, "image/svg+xml");
-      }
-      types["image/png"] = result.format === "png" ? result.blob :
-        await globalThis.__chatgptUIExportRaster.preview(result, signal);
-      signal.throwIfAborted();
+    async function copy(result) {
       try {
-        await navigator.clipboard.write([new ClipboardItem(types)]);
-      } catch (error) {
-        if (types["image/svg+xml"] && error.name === "DataError") {
-          await navigator.clipboard.write([new ClipboardItem({ "image/png": types["image/png"] })]);
-          return;
-        }
+        if (result.format === "svg") await navigator.clipboard.writeText(await result.blob.text());
+        else await navigator.clipboard.write([new ClipboardItem({ "image/png": result.blob })]);
+      } catch {
         throw new Error("无法写入剪贴板。请点击一下页面后重试，或改用下载。");
       }
     }
@@ -764,7 +754,7 @@
           text: settings.outlined ? "outline" : "live", signal: controller.signal
         });
         if (closed) return;
-        if (kind === "copy") await copy(result, controller.signal);
+        if (kind === "copy") await copy(result);
         else download(result, node);
         if (closed) return;
         replay(frame, "data-flash");
