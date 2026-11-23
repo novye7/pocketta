@@ -7,5 +7,6 @@
     "check": "node scripts/check.mjs",
     "test:browser": "node scripts/test-browser.mjs",
     "icons": "node scripts/generate-icons.mjs"
-  }
+  },
+  "license": "MIT"
 }

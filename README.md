@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/media/pocketta-otter.webp" width="220" alt="Pocketta 水獭抱着一张界面卡片浮在水面上">
+</p>
+
 # Pocketta
 
 从 ChatGPT 回复里取出一张卡片、一幅图或一份表格。Pocketta 在浏览器中完成导出：用 PNG 将组件贴进笔记，用原生 SVG 在设计工具里继续改文字和颜色。
@@ -60,3 +64,7 @@ Canvas、视频、iframe 和开放的 Shadow DOM 目前不支持导出。PNG 上
 ## 开发与反馈
 
 在仓库根目录运行 `npm run check` 可检查脚本语法、扩展清单和打包文件。浏览器回归覆盖 PNG / SVG 渲染、选择与复制、280px 窄屏和视觉保真度。环境准备、测试命令和问题报告建议见[贡献指南](CONTRIBUTING.md)。
+
+## 许可证
+
+项目代码和文档采用 [MIT 许可证](LICENSE)。[水獭插图](docs/media/pocketta-otter.webp)经授权随本仓库分发，单独使用该图需另行取得授权。
