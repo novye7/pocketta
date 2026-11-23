@@ -4,7 +4,7 @@
   "private": true,
   "description": "Export selected ChatGPT intelligent UI components to SVG or PNG.",
   "scripts": {
-    "check": "for f in extension/*.js tests/*.js scripts/*.mjs; do node --check \"$f\" || exit 1; done && node scripts/check-manifest.mjs",
+    "check": "node scripts/check.mjs",
     "test:browser": "node scripts/test-browser.mjs",
     "icons": "node scripts/generate-icons.mjs"
   }
