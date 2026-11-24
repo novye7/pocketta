@@ -172,4 +172,4 @@ SVG 导出只接受能画成矢量的内容。选区里有照片，或者用到�
 
 ## 许可证
 
-代码和文档采用 [MIT 许可证](LICENSE)。[水獭插图](docs/media/pocketta-otter.webp)不在 MIT 许可的范围内：它可以随本仓库一起分发，单独使用需要另行取得授权。
+代码、文档和[水獭插图](docs/media/pocketta-otter.webp)均采用 [MIT 许可证](LICENSE)。
