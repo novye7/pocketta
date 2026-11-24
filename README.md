@@ -166,6 +166,10 @@ SVG 导出只接受能画成矢量的内容。选区里有照片，或者用到�
 
 欢迎提交 issue 或 pull request。环境准备、代码结构和报告导出问题时需要的信息，见[贡献指南](CONTRIBUTING.md)。
 
+## 友情链接
+
+[LINUX DO](https://linux.do/)
+
 ## 许可证
 
 代码和文档采用 [MIT 许可证](LICENSE)。[水獭插图](docs/media/pocketta-otter.webp)不在 MIT 许可的范围内：它可以随本仓库一起分发，单独使用需要另行取得授权。
