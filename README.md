@@ -21,7 +21,7 @@
   <a href="#贡献">贡献</a>
 </p>
 
-![ChatGPT「Agent 架构分类」对话全景：Pocketta 用蓝框选中 ReAct 流程图，图上方的工具条已切换到 SVG。](docs/media/react-selection.png)
+![Pocketta 导出 ReAct 流程图的两个步骤：① 鼠标移到组件上，点击右上角的悬浮按钮；② 在蓝框上方的工具条选择 PNG 或 SVG，再复制或下载。](docs/media/react-selection.png)
 
 Pocketta 是一个 Chrome 扩展。ChatGPT 的回复里除了文字，还会出现卡片、图表、表格这样的界面组件（Intelligent UI）。想把其中一块单独留下来，靠截图就得自己对齐裁边，清晰度受屏幕限制，里面的文字和颜色也没法再改。
 
