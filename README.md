@@ -17,7 +17,8 @@
   <a href="#使用">使用</a> ·
   <a href="#png-还是-svg">PNG 还是 SVG</a> ·
   <a href="#隐私与权限">隐私</a> ·
-  <a href="#常见问题">常见问题</a>
+  <a href="#常见问题">常见问题</a> ·
+  <a href="#贡献">贡献</a>
 </p>
 
 ![一张阅读统计卡片被蓝色边框选中，上方的工具条提供 PNG / SVG 切换、复制和下载](docs/media/select-component.png)
@@ -159,10 +160,14 @@ SVG 导出只接受能画成矢量的内容。选区里有照片，或者用到�
 | `npm run check` | 检查脚本语法、manifest 和打包文件 |
 | `npm run test:browser` | 浏览器回归：渲染、选取交互、窄屏布局和 SVG 视觉保真度 |
 
-`npm run check` 只需要 Node.js。浏览器回归还要装 agent-browser，跑的是本地夹具，不需要登录 ChatGPT。环境准备、代码结构和报告问题的方式，见[贡献指南](CONTRIBUTING.md)。
+`npm run check` 只需要 Node.js。浏览器回归还要装 agent-browser，跑的是本地夹具，不需要登录 ChatGPT。
+
+## 贡献
+
+感谢 Codex 和 Claude 在 Pocketta 开发过程中提供协助。
+
+欢迎提交 issue 或 pull request。环境准备、代码结构和报告导出问题时需要的信息，见[贡献指南](CONTRIBUTING.md)。
 
 ## 许可证
 
 代码和文档采用 [MIT 许可证](LICENSE)。[水獭插图](docs/media/pocketta-otter.webp)不在 MIT 许可的范围内：它可以随本仓库一起分发，单独使用需要另行取得授权。
-
-Pocketta 是独立开发的项目，与 OpenAI 没有关联。
