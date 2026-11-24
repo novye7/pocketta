@@ -21,9 +21,9 @@
   <a href="#贡献">贡献</a>
 </p>
 
-![一张阅读统计卡片被蓝色边框选中，上方的工具条提供 PNG / SVG 切换、复制和下载](docs/media/select-component.png)
+![ChatGPT 回复中的检索指标、评分图和检索结果。Pocketta 的蓝框选中了柱状图，工具条显示 PNG、SVG、复制和下载。](docs/media/ranking-selection.png)
 
-<p align="center"><sub>选中一张卡片时的样子。卡片里是示例数据。</sub></p>
+在这段[公开对话](https://chatgpt.com/share/6b056cc6-98c4-83e9-b234-f9a93ccbb3cf)里，ChatGPT 展示了五篇候选文档的检索评分。蓝框标出要导出的图表，上方的指标和下方的检索结果都在选区之外。
 
 Pocketta 是一个 Chrome 扩展。ChatGPT 的回复里除了文字，还会出现卡片、图表、表格这样的界面组件（Intelligent UI）。想把其中一块单独留下来，靠截图就得自己对齐裁边，清晰度受屏幕限制，里面的文字和颜色也没法再改。
 
@@ -62,6 +62,8 @@ Pocketta 目前通过「加载已解压的扩展程序」安装，适用于 Chro
 
 按 `Esc`，或者点一下组件以外的地方，就会退出。格式和选项会被记住，下次打开时沿用。
 
+![Pocketta 在 ChatGPT 的一段回答中选中 Reflection、Reflexion 和 Retry 对照表，工具条已切换到 SVG，表格前后的解释仍然可见。](docs/media/reflection-selection.png)
+
 ### 快捷键
 
 | 按键 | 作用 |
@@ -90,10 +92,10 @@ Pocketta 目前通过「加载已解压的扩展程序」安装，适用于 Chro
 
 背景选「透明」时，只是不再铺页面的底色，组件自己的色块和边框都会保留。
 
-下面这张图不是截图，而是把开头那张卡片导出后得到的 SVG 文件本身。文字还是文字，边框和柱子都是矢量图形，放大多少倍都清晰。同一张卡片也导出了一份 [2× 的 PNG](docs/media/reading-week.png)。
+下面是开头那张评分图导出的 SVG。放大后，柱形和刻度依然清晰，文档编号和图例文字可以继续编辑。也可以打开[同一选区的 2× PNG](docs/media/ranking-scores.png) 对照。
 
 <p align="center">
-  <img src="docs/media/reading-week.svg" width="560" alt="导出的 SVG 文件：一张「一周阅读时间」柱状图卡片">
+  <img src="docs/media/ranking-scores.svg" width="640" alt="导出的评分图，五根彩色柱子按候选文档的融合评分从高到低排列">
 </p>
 
 SVG 里的文字有两种处理方式：
